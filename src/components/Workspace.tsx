@@ -24,6 +24,24 @@ interface StructureNode {
   how: string | null;
 }
 
+interface MeaningLens {
+  lens: string;
+  detected: boolean;
+  detail: string | null;
+}
+
+interface MeaningNodeResult {
+  node_id: string;
+  source_text: string;
+  lenses: MeaningLens[];
+}
+
+interface MeaningData {
+  status: string;
+  message: string | null;
+  node_results: MeaningNodeResult[];
+}
+
 interface VerificationNode {
   node_id: string;
   assertion_detected: boolean;
