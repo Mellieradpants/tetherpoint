@@ -26,18 +26,16 @@ function Index() {
     setError(null);
     setResult(null);
     try {
-      const data = await analyzePipeline({
-        data: {
-          content,
-          content_type: contentType,
-          options: {
-            run_meaning: options.run_meaning ?? false,
-            run_origin: options.run_origin ?? true,
-            run_verification: options.run_verification ?? true,
-          },
+      const data = await analyzeDocument({
+        content,
+        content_type: contentType,
+        options: {
+          run_meaning: options.run_meaning ?? false,
+          run_origin: options.run_origin ?? true,
+          run_verification: options.run_verification ?? true,
         },
       });
-      setResult(data as unknown as PipelineResponse);
+      setResult(data as PipelineResponse);
       setShowInput(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
