@@ -125,8 +125,8 @@ interface AnalyzeInput {
 }
 
 export const analyzePipeline = createServerFn({ method: "POST" })
-  .validator((input: unknown) => input as AnalyzeInput)
-  .handler(async ({ data }) => {
+  .inputValidator((input: unknown) => input as AnalyzeInput)
+  .handler(async ({ data }: { data: AnalyzeInput }) => {
     const { content, content_type: contentType, options } = data;
 
     // 1. Input
