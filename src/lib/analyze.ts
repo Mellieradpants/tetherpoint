@@ -231,9 +231,10 @@ export const analyzePipeline = createServerFn({ method: "POST" })
       parse_errors: [] as string[],
     };
 
-    // 2. Structure
-    const statements = contentType === "html" ? extractFromHtml(content) : splitSentences(content);
-    const nodes = statements.filter(s => s.trim()).map((s, i) => buildNode(i, s.trim()));
+    // 2. Structure – merge fragments into complete statements
+    const rawSegments = contentType === "html" ? extractFromHtml(content) : splitSentences(content);
+    const merged = mergeFragments(rawSegments.filter(s => s.trim()));
+    const nodes = merged.map((m, i) => buildNode(i, m.text.trim(), m.fragment));
 
     // 3. Selection
     const selected = nodes.filter(n => n.blocked_flags.length === 0 && (n.tags.length > 0 || n.action));
