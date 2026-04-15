@@ -290,9 +290,40 @@ def _extract_statements_text(content: str) -> list[dict[str, str]]:
 
 
 def _extract_statements_html(content: str) -> list[dict[str, str]]:
+    """Extract statements from HTML by iterating block-level elements individually.
+
+    Instead of dumping all text and splitting by sentence boundaries (which
+    merges titles with first paragraphs), we extract text from each block
+    element separately, then apply sentence splitting within each block.
+    """
     soup = BeautifulSoup(content, "html.parser")
-    text = soup.get_text(separator="\n")
-    return sse_extract(text)
+    _BLOCK_TAGS = {
+        "p", "h1", "h2", "h3", "h4", "h5", "h6",
+        "li", "td", "th", "blockquote", "figcaption",
+        "dt", "dd", "caption", "title",
+    }
+
+    results: list[dict[str, str]] = []
+    seen_texts: set[str] = set()
+
+    # First pass: collect text from block-level elements
+    blocks = soup.find_all(_BLOCK_TAGS)
+
+    if blocks:
+        for block in blocks:
+            text = block.get_text(separator=" ").strip()
+            if not text or text in seen_texts:
+                continue
+            seen_texts.add(text)
+            # Apply sentence splitting within this block
+            sentences = sse_extract(text)
+            results.extend(sentences)
+    else:
+        # Fallback: no block elements found, use full text extraction
+        text = soup.get_text(separator="\n")
+        results = sse_extract(text)
+
+    return results
 
 
 def _extract_statements_xml(content: str) -> list[dict[str, str]]:
