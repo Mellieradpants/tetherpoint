@@ -33,7 +33,7 @@ export function HomePage() {
       );
 
       if (!response.ok) {
-        throw new Error("Request failed");
+        throw new Error("Analysis failed");
       }
 
       const data = await response.json();
@@ -49,53 +49,75 @@ export function HomePage() {
   return (
     <div
       style={{
-        maxWidth: "700px",
-        margin: "0 auto",
-        padding: "40px 20px",
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#0f172a",
+        color: "#e5e7eb",
         fontFamily: "system-ui",
       }}
     >
-      <h1 style={{ marginBottom: "20px" }}>Tetherpoint Analyzer</h1>
-
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Paste text here..."
+      <div
         style={{
           width: "100%",
-          height: "150px",
-          padding: "10px",
-          fontSize: "14px",
-          marginBottom: "20px",
-        }}
-      />
-
-      <button
-        type="button"
-        onClick={handleAnalyze}
-        style={{
-          padding: "10px 20px",
-          fontSize: "14px",
-          cursor: "pointer",
+          maxWidth: "700px",
+          padding: "30px",
+          background: "#111827",
+          borderRadius: "12px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
         }}
       >
-        {loading ? "Analyzing..." : "Analyze"}
-      </button>
+        <h1 style={{ marginBottom: "20px" }}>Tetherpoint Analyzer</h1>
 
-      {result !== null && (
-        <pre
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Paste text here..."
           style={{
-            marginTop: "20px",
-            background: "#111",
-            color: "#0f0",
-            padding: "15px",
-            overflowX: "auto",
-            fontSize: "12px",
+            width: "100%",
+            height: "150px",
+            padding: "12px",
+            fontSize: "14px",
+            marginBottom: "20px",
+            borderRadius: "8px",
+            border: "1px solid #374151",
+            background: "#020617",
+            color: "#e5e7eb",
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={handleAnalyze}
+          style={{
+            padding: "10px 20px",
+            fontSize: "14px",
+            cursor: "pointer",
+            borderRadius: "8px",
+            border: "none",
+            background: "#3b82f6",
+            color: "white",
           }}
         >
-          {JSON.stringify(result, null, 2)}
-        </pre>
-      )}
+          {loading ? "Analyzing..." : "Analyze"}
+        </button>
+
+        {result !== null && (
+          <pre
+            style={{
+              marginTop: "20px",
+              background: "#020617",
+              padding: "15px",
+              borderRadius: "8px",
+              overflowX: "auto",
+              fontSize: "12px",
+            }}
+          >
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }
