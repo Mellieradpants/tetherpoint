@@ -1,0 +1,547 @@
+openapi: "3.1.0"
+info:
+  title: Tetherpoint
+  description: >
+    Source-anchored parsing stack. Locked 7-layer pipeline:
+    Input → Structure → Selection → Meaning → Origin → Verification → Output.
+  version: "0.1.0"
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /analyze:
+    post:
+      operationId: analyze
+      summary: Run the locked 7-layer pipeline on a source document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeRequest"
+      responses:
+        "200":
+          description: Full pipeline result with all 7 layer outputs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /health:
+    get:
+      operationId: health
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+
+components:
+  schemas:
+
+    # -----------------------------------------------------------------------
+    # Request
+    # -----------------------------------------------------------------------
+
+    ContentType:
+      type: string
+      enum: [xml, html, json, text]
+
+    AnalyzeOptions:
+      type: object
+      properties:
+        run_meaning:
+          type: boolean
+          default: true
+        run_origin:
+          type: boolean
+          default: true
+        run_verification:
+          type: boolean
+          default: true
+
+    AnalyzeRequest:
+      type: object
+      required: [content, content_type]
+      properties:
+        content:
+          type: string
+          description: Raw document text
+        content_type:
+          $ref: "#/components/schemas/ContentType"
+        options:
+          $ref: "#/components/schemas/AnalyzeOptions"
+
+    # -----------------------------------------------------------------------
+    # Layer 1 — Input
+    # Purpose: intake only. No inference, no interpretation.
+    # -----------------------------------------------------------------------
+
+    InputResult:
+      type: object
+      required: [raw_content, content_type, size, parse_status]
+      properties:
+        raw_content:
+          type: string
+          description: Preserved raw input exactly as received
+        content_type:
+          type: string
+          description: Content type as provided in request
+        size:
+          type: integer
+          description: Size in bytes (UTF-8 encoded)
+        parse_status:
+          type: string
+          enum: [ok, error]
+          description: Well-formedness validation result
+        parse_errors:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Parse error messages if parse_status is error
+
+    # -----------------------------------------------------------------------
+    # Layer 2 — Structure
+    # Purpose: deterministic parse and normalize. No AI.
+    # Subsystems: 5W1H, SSE, CFS, LNS, AAC, TPS, SJM, MPS, RDS, ISC
+    # -----------------------------------------------------------------------
+
+    StructureNode:
+      type: object
+      required:
+        - node_id
+        - source_anchor
+        - source_text
+        - normalized_text
+        - tags
+        - blocked_flags
+      properties:
+        node_id:
+          type: string
+          description: Unique node identifier, path-addressable back to source
+        source_anchor:
+          type: string
+          description: >
+            Position reference in source document
+            (e.g. char:0-42, xpath:section[0], jsonpath:$.body)
+        source_text:
+          type: string
+          description: Original text span, unmodified
+        normalized_text:
+          type: string
+          description: LNS-normalized text (whitespace/line cleanup only, no semantic rewriting)
+        actor:
+          type: string
+          nullable: true
+          description: "AAC: explicit actor if present"
+        action:
+          type: string
+          nullable: true
+          description: "AAC: explicit action if present"
+        condition:
+          type: string
+          nullable: true
+          description: "AAC: explicit condition if present"
+        temporal:
+          type: string
+          nullable: true
+          description: "TPS: explicit deadline, trigger, timing if present"
+        jurisdiction:
+          type: string
+          nullable: true
+          description: "SJM: explicit system, jurisdiction, authority if present"
+        mechanism:
+          type: string
+          nullable: true
+          description: "MPS: explicit enforcement, process step, procedural flow if present"
+        risk:
+          type: object
+          nullable: true
+          description: "RDS: separated likelihood and impact language"
+          properties:
+            likelihood:
+              type: string
+              nullable: true
+            impact:
+              type: string
+              nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          description: Extraction signal tags (e.g. has_actor, has_temporal)
+        blocked_flags:
+          type: array
+          items:
+            type: string
+          description: >
+            CFS violation flags
+            (intent_attribution, emotional_labeling, causal_inference, narrative_language)
+        who:
+          type: string
+          nullable: true
+          description: "5W1H: explicit who if directly present"
+        what:
+          type: string
+          nullable: true
+          description: "5W1H: explicit what if directly present"
+        when:
+          type: string
+          nullable: true
+          description: "5W1H: explicit when if directly present"
+        where:
+          type: string
+          nullable: true
+          description: "5W1H: explicit where if directly present"
+        why:
+          type: string
+          nullable: true
+          description: "5W1H: explicit why if directly present"
+        how:
+          type: string
+          nullable: true
+          description: "5W1H: explicit how if directly present"
+
+    StructureResult:
+      type: object
+      required: [nodes, node_count]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructureNode"
+          description: Ordered list of structure nodes, preserving source order
+        node_count:
+          type: integer
+
+    # -----------------------------------------------------------------------
+    # Layer 3 — Selection
+    # Purpose: deterministic node eligibility. No AI, no interpretation.
+    # Nodes pass through unchanged.
+    # -----------------------------------------------------------------------
+
+    SelectionResult:
+      type: object
+      required: [selected_nodes, excluded_nodes, selection_log]
+      properties:
+        selected_nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructureNode"
+          description: Nodes eligible for downstream processing (unchanged)
+        excluded_nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructureNode"
+          description: Nodes excluded with explicit reasons
+        selection_log:
+          type: array
+          items:
+            type: string
+          description: >
+            Per-node selection decision log
+            (e.g. "node-0001: SELECTED", "node-0002: EXCLUDED — no structured signal detected")
+
+    # -----------------------------------------------------------------------
+    # Layer 4 — Meaning
+    # Purpose: the ONLY AI interpretation layer.
+    # Operates only on selected nodes. Isolated behind clear interface.
+    # If no model key, returns status only — no fake output.
+    # -----------------------------------------------------------------------
+
+    MeaningLens:
+      type: object
+      required: [lens, detected]
+      properties:
+        lens:
+          type: string
+          enum:
+            - modality_shift
+            - scope_change
+            - actor_power_shift
+            - action_domain_shift
+            - threshold_standard_shift
+            - obligation_removal
+        detected:
+          type: boolean
+        detail:
+          type: string
+          nullable: true
+
+    MeaningNodeResult:
+      type: object
+      required: [node_id, source_text, lenses]
+      properties:
+        node_id:
+          type: string
+          description: Links back to StructureNode.node_id
+        source_text:
+          type: string
+          description: Original node text (not altered by Meaning)
+        lenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeaningLens"
+
+    MeaningResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [executed, skipped, error]
+          description: >
+            "executed" if AI ran, "skipped" if no API key or disabled,
+            "error" if AI call failed
+        message:
+          type: string
+          nullable: true
+          description: Explanation when status is skipped or error
+        node_results:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeaningNodeResult"
+          default: []
+
+    # -----------------------------------------------------------------------
+    # Layer 5 — Origin
+    # Purpose: provenance/source tracing only.
+    # No credibility judgment. No truth claims. No intent claims.
+    # Distribution metadata does not override origin identity.
+    # -----------------------------------------------------------------------
+
+    OriginSignal:
+      type: object
+      required: [signal, value]
+      properties:
+        signal:
+          type: string
+          description: Signal type (e.g. author, canonical_url, jsonld_publisher)
+        value:
+          type: string
+        category:
+          type: string
+          nullable: true
+          description: Signal category (e.g. opengraph, twitter_card) — distribution signals only
+
+    OriginResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [executed, skipped]
+        origin_identity_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OriginSignal"
+          default: []
+          description: Source identity signals (author, publisher, canonical URL)
+        origin_metadata_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OriginSignal"
+          default: []
+          description: Source metadata signals (title, publish timestamp, type)
+        distribution_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/OriginSignal"
+          default: []
+          description: >
+            Distribution metadata (OG tags, Twitter cards).
+            Explicitly separated — does NOT override origin identity.
+        evidence_trace:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Trace log of what was found and where
+
+    # -----------------------------------------------------------------------
+    # Layer 6 — Verification
+    # Purpose: verification-path routing only.
+    # No true/false decisions. No credibility scoring. No final judgment.
+    # -----------------------------------------------------------------------
+
+    VerificationNodeResult:
+      type: object
+      required: [node_id, assertion_detected, verification_path_available]
+      properties:
+        node_id:
+          type: string
+        assertion_detected:
+          type: boolean
+        assertion_type:
+          type: string
+          nullable: true
+          enum:
+            - legal_legislative
+            - court_case_law
+            - government_publication
+            - scientific_biomedical
+            - statistical_public_data
+            - corporate_financial
+            - infrastructure_energy
+            - historical_archival
+            - null
+          description: Classification of the assertion if detected
+        verification_path_available:
+          type: boolean
+          description: Whether candidate record systems exist for this assertion type
+        expected_record_systems:
+          type: array
+          items:
+            type: string
+          default: []
+          description: >
+            Candidate record systems for verification routing.
+            Examples: Congress.gov, Federal Register, GovInfo, CourtListener,
+            PubMed, SEC EDGAR, Census, EIA, FERC, NERC, JSTOR, National Archives
+        verification_notes:
+          type: string
+          nullable: true
+
+    VerificationResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [executed, skipped]
+        node_results:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationNodeResult"
+          default: []
+
+    # -----------------------------------------------------------------------
+    # Layer 7 — Output
+    # Purpose: presentation only. No transformation of upstream meaning.
+    # -----------------------------------------------------------------------
+
+    OutputResult:
+      type: object
+      required:
+        - summary
+        - total_nodes
+        - selected_count
+        - excluded_count
+        - meaning_status
+        - origin_status
+        - verification_status
+      properties:
+        summary:
+          type: object
+          additionalProperties: true
+          description: Input-level summary (content_type, parse_status, input_size)
+        total_nodes:
+          type: integer
+        selected_count:
+          type: integer
+        excluded_count:
+          type: integer
+        meaning_status:
+          type: string
+        origin_status:
+          type: string
+        verification_status:
+          type: string
+
+    # -----------------------------------------------------------------------
+    # Pipeline error
+    # -----------------------------------------------------------------------
+
+    PipelineError:
+      type: object
+      required: [layer, error, fatal]
+      properties:
+        layer:
+          type: string
+          enum: [input, structure, selection, meaning, origin, verification, output]
+        error:
+          type: string
+        fatal:
+          type: boolean
+          default: false
+          description: If true, downstream layers may have empty results
+
+    # -----------------------------------------------------------------------
+    # Full pipeline response
+    # -----------------------------------------------------------------------
+
+    PipelineResponse:
+      type: object
+      required:
+        - input
+        - structure
+        - selection
+        - meaning
+        - origin
+        - verification
+        - output
+        - errors
+      properties:
+        input:
+          $ref: "#/components/schemas/InputResult"
+        structure:
+          $ref: "#/components/schemas/StructureResult"
+        selection:
+          $ref: "#/components/schemas/SelectionResult"
+        meaning:
+          $ref: "#/components/schemas/MeaningResult"
+        origin:
+          $ref: "#/components/schemas/OriginResult"
+        verification:
+          $ref: "#/components/schemas/VerificationResult"
+        output:
+          $ref: "#/components/schemas/OutputResult"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/PipelineError"
+          default: []
+          description: Top-level errors surfaced from any layer
+
+    # -----------------------------------------------------------------------
+    # Validation error (422)
+    # -----------------------------------------------------------------------
+
+    ValidationError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
