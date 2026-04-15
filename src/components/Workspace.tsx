@@ -312,8 +312,13 @@ function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningDa
     );
   }
 
-  const detected = nodeResult.lenses.filter(l => l.detected);
-  const notDetected = nodeResult.lenses.filter(l => !l.detected);
+  // Normalize lenses: API may return string[] or MeaningLens[]
+  const normalizedLenses: MeaningLens[] = nodeResult.lenses.map(l =>
+    typeof l === "string" ? { lens: l, detected: true, detail: null } : l
+  );
+
+  const detected = normalizedLenses.filter(l => l.detected);
+  const notDetected = normalizedLenses.filter(l => !l.detected);
 
   return (
     <div className="space-y-4">
