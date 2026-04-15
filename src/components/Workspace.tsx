@@ -627,6 +627,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
               <div className="p-4 pb-8 flex-1 overflow-y-auto">
                 {activeTab === "structure" && <StructureTab node={currentNode} />}
                 {activeTab === "text" && <TextTab node={currentNode} />}
+                {activeTab === "meaning" && <MeaningTab node={currentNode} meaning={data.meaning} />}
                 {activeTab === "signals" && (
                   <SignalsTab
                     node={currentNode}
