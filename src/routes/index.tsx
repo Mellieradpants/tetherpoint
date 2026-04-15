@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AnalyzeForm } from "../components/AnalyzeForm";
 import { ResultsPanel } from "../components/ResultsPanel";
+import { analyzePipeline } from "../lib/analyze";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,8 +14,6 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
 function Index() {
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +24,18 @@ function Index() {
     setError(null);
     setResult(null);
     try {
-      const resp = await fetch(`${API_BASE}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, content_type: contentType, options }),
+      const data = await analyzePipeline({
+        data: {
+          content,
+          content_type: contentType,
+          options: {
+            run_meaning: options.run_meaning ?? false,
+            run_origin: options.run_origin ?? true,
+            run_verification: options.run_verification ?? true,
+          },
+        },
       });
-      if (!resp.ok) {
-        throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
-      }
-      const data = await resp.json();
-      setResult(data);
+      setResult(data as Record<string, unknown>);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
