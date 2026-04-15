@@ -1,12 +1,20 @@
-"""Pydantic models for the Tetherpoint pipeline."""
+"""Pydantic models for the Tetherpoint pipeline.
+
+Source of truth: backend/openapi.yaml
+All schemas here must match the OpenAPI 3.1 spec exactly.
+"""
 
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+
+# ---------------------------------------------------------------------------
+# Request
+# ---------------------------------------------------------------------------
 
 class ContentType(str, Enum):
     xml = "xml"
@@ -27,17 +35,24 @@ class AnalyzeRequest(BaseModel):
     options: AnalyzeOptions = Field(default_factory=AnalyzeOptions)
 
 
-# --- Input layer ---
+# ---------------------------------------------------------------------------
+# Layer 1 — Input
+# Purpose: intake only. No inference, no interpretation.
+# ---------------------------------------------------------------------------
 
 class InputResult(BaseModel):
     raw_content: str
     content_type: str
     size: int
-    parse_status: str  # "ok" | "error"
+    parse_status: Literal["ok", "error"]
     parse_errors: list[str] = Field(default_factory=list)
 
 
-# --- Structure layer ---
+# ---------------------------------------------------------------------------
+# Layer 2 — Structure
+# Purpose: deterministic parse and normalize. No AI.
+# Subsystems: 5W1H, SSE, CFS, LNS, AAC, TPS, SJM, MPS, RDS, ISC
+# ---------------------------------------------------------------------------
 
 class StructureNode(BaseModel):
     node_id: str
@@ -66,7 +81,11 @@ class StructureResult(BaseModel):
     node_count: int
 
 
-# --- Selection layer ---
+# ---------------------------------------------------------------------------
+# Layer 3 — Selection
+# Purpose: deterministic node eligibility. No AI, no interpretation.
+# Nodes pass through unchanged.
+# ---------------------------------------------------------------------------
 
 class SelectionResult(BaseModel):
     selected_nodes: list[StructureNode]
@@ -74,10 +93,25 @@ class SelectionResult(BaseModel):
     selection_log: list[str]
 
 
-# --- Meaning layer ---
+# ---------------------------------------------------------------------------
+# Layer 4 — Meaning
+# Purpose: the ONLY AI interpretation layer.
+# Operates only on selected nodes. Isolated behind clear interface.
+# If no model key, returns status only — no fake output.
+# ---------------------------------------------------------------------------
+
+MeaningLensName = Literal[
+    "modality_shift",
+    "scope_change",
+    "actor_power_shift",
+    "action_domain_shift",
+    "threshold_standard_shift",
+    "obligation_removal",
+]
+
 
 class MeaningLens(BaseModel):
-    lens: str
+    lens: MeaningLensName
     detected: bool
     detail: Optional[str] = None
 
@@ -89,38 +123,68 @@ class MeaningNodeResult(BaseModel):
 
 
 class MeaningResult(BaseModel):
-    status: str  # "executed" | "skipped" | "error"
+    status: Literal["executed", "skipped", "error"]
     message: Optional[str] = None
     node_results: list[MeaningNodeResult] = Field(default_factory=list)
 
 
-# --- Origin layer ---
+# ---------------------------------------------------------------------------
+# Layer 5 — Origin
+# Purpose: provenance/source tracing only.
+# No credibility judgment. No truth claims. No intent claims.
+# Distribution metadata does not override origin identity.
+# ---------------------------------------------------------------------------
+
+class OriginSignal(BaseModel):
+    signal: str
+    value: str
+    category: Optional[str] = None
+
 
 class OriginResult(BaseModel):
-    status: str  # "executed" | "skipped"
-    origin_identity_signals: list[dict[str, Any]] = Field(default_factory=list)
-    origin_metadata_signals: list[dict[str, Any]] = Field(default_factory=list)
-    distribution_signals: list[dict[str, Any]] = Field(default_factory=list)
+    status: Literal["executed", "skipped"]
+    origin_identity_signals: list[OriginSignal] = Field(default_factory=list)
+    origin_metadata_signals: list[OriginSignal] = Field(default_factory=list)
+    distribution_signals: list[OriginSignal] = Field(default_factory=list)
     evidence_trace: list[str] = Field(default_factory=list)
 
 
-# --- Verification layer ---
+# ---------------------------------------------------------------------------
+# Layer 6 — Verification
+# Purpose: verification-path routing only.
+# No true/false decisions. No credibility scoring. No final judgment.
+# ---------------------------------------------------------------------------
+
+AssertionType = Literal[
+    "legal_legislative",
+    "court_case_law",
+    "government_publication",
+    "scientific_biomedical",
+    "statistical_public_data",
+    "corporate_financial",
+    "infrastructure_energy",
+    "historical_archival",
+]
+
 
 class VerificationNodeResult(BaseModel):
     node_id: str
     assertion_detected: bool
-    assertion_type: Optional[str] = None
+    assertion_type: Optional[AssertionType] = None
     verification_path_available: bool
     expected_record_systems: list[str] = Field(default_factory=list)
     verification_notes: Optional[str] = None
 
 
 class VerificationResult(BaseModel):
-    status: str  # "executed" | "skipped"
+    status: Literal["executed", "skipped"]
     node_results: list[VerificationNodeResult] = Field(default_factory=list)
 
 
-# --- Output layer ---
+# ---------------------------------------------------------------------------
+# Layer 7 — Output
+# Purpose: presentation only. No transformation of upstream meaning.
+# ---------------------------------------------------------------------------
 
 class OutputResult(BaseModel):
     summary: dict[str, Any]
@@ -132,15 +196,25 @@ class OutputResult(BaseModel):
     verification_status: str
 
 
-# --- Pipeline error ---
+# ---------------------------------------------------------------------------
+# Pipeline error
+# ---------------------------------------------------------------------------
+
+PipelineLayerName = Literal[
+    "input", "structure", "selection", "meaning",
+    "origin", "verification", "output",
+]
+
 
 class PipelineError(BaseModel):
-    layer: str
+    layer: PipelineLayerName
     error: str
     fatal: bool = False
 
 
-# --- Full pipeline response ---
+# ---------------------------------------------------------------------------
+# Full pipeline response
+# ---------------------------------------------------------------------------
 
 class PipelineResponse(BaseModel):
     input: InputResult
