@@ -348,6 +348,11 @@ function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningDa
       {detected.length === 0 && notDetected.length === 0 && (
         <div className="text-sm text-muted-foreground italic">No lenses returned.</div>
       )}
+      {nodeResult.summary && (
+        <FieldGroup title="Summary">
+          <div className="text-sm text-foreground leading-relaxed">{nodeResult.summary}</div>
+        </FieldGroup>
+      )}
     </div>
   );
 }
