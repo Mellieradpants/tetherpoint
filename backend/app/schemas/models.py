@@ -132,6 +132,14 @@ class OutputResult(BaseModel):
     verification_status: str
 
 
+# --- Pipeline error ---
+
+class PipelineError(BaseModel):
+    layer: str
+    error: str
+    fatal: bool = False
+
+
 # --- Full pipeline response ---
 
 class PipelineResponse(BaseModel):
@@ -142,3 +150,4 @@ class PipelineResponse(BaseModel):
     origin: OriginResult
     verification: VerificationResult
     output: OutputResult
+    errors: list[PipelineError] = Field(default_factory=list)
