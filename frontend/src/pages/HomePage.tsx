@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { InputForm } from "../components/InputForm";
 import { ResultsView } from "../components/ResultsView";
-import { analyzeDocument } from "../api/client";
 import { AnalyzeRequest, PipelineResponse } from "../types";
 
 export function HomePage() {
@@ -14,11 +13,17 @@ export function HomePage() {
     setError(null);
     setResult(null);
     try {
-      const response = await fetch("/api/analyze", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(request),
-});
+  const response = await fetch(
+  "https://anchored-flow-stack.onrender.com/analyze",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-analyze-secret": "Apple_Banana_Bridge_123",
+    },
+    body: JSON.stringify(request),
+  }
+);    
 
 if (!response.ok) {
   throw new Error("Analysis failed");
