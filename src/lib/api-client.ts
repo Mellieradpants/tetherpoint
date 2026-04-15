@@ -1,7 +1,12 @@
 /**
- * Frontend API client — calls the backend /analyze endpoint.
- * No server secrets are sent from the frontend.
+ * Frontend API client — routes analysis requests.
+ *
+ * When meaning (AI) is requested, the call goes through the TanStack server
+ * function which has access to ANALYZE_SECRET and OPENAI_API_KEY.
+ * Otherwise, it calls the Render backend directly.
  */
+
+import { analyzePipeline } from "./analyze";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "https://anchored-flow-stack.onrender.com";
 
@@ -17,6 +22,18 @@ interface AnalyzeRequest {
 }
 
 export async function analyzeDocument(request: AnalyzeRequest) {
+  // Route through server function when meaning is enabled (needs secrets)
+  if (request.options.run_meaning) {
+    return analyzePipeline({
+      data: {
+        content: request.content,
+        content_type: request.content_type,
+        options: request.options,
+      },
+    });
+  }
+
+  // Otherwise, call the Render backend directly
   if (!API_BASE) {
     throw new Error("Backend unavailable: VITE_API_URL is not configured.");
   }
