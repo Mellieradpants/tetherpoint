@@ -40,7 +40,7 @@ interface MeaningNodeResult {
 interface MeaningData {
   status: string;
   message: string | null;
-  node_results: MeaningNodeResult[];
+  node_results?: MeaningNodeResult[];
 }
 
 interface VerificationNode {
