@@ -69,7 +69,7 @@ export interface PipelineResponse {
   input: Record<string, unknown>;
   structure: { nodes: StructureNode[]; node_count: number };
   selection: { selected_nodes: StructureNode[]; excluded_nodes: StructureNode[]; selection_log: string[] };
-  meaning: Record<string, unknown>;
+  meaning: MeaningData;
   origin: OriginData;
   verification: { status: string; node_results: VerificationNode[] };
   output: Record<string, unknown>;
@@ -113,7 +113,7 @@ function TagPill({ children, variant = "default" }: { children: React.ReactNode;
 
 // ─── Detail tabs ───
 
-type DetailTab = "structure" | "text" | "signals";
+type DetailTab = "structure" | "text" | "meaning" | "signals";
 
 function StructureTab({ node }: { node: StructureNode }) {
   const hasActors = node.actor || node.who;
@@ -279,6 +279,69 @@ function OriginPanel({ origin }: { origin: OriginData }) {
       {renderGroup("Identity", "👤", origin.origin_identity_signals)}
       {renderGroup("Metadata", "📄", origin.origin_metadata_signals)}
       {renderGroup("Distribution", "🌐", origin.distribution_signals)}
+    </div>
+  );
+}
+
+// ─── Meaning tab ───
+
+function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningData }) {
+  if (meaning.status === "skipped") {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        {meaning.message || "Meaning analysis was skipped."}
+      </div>
+    );
+  }
+  if (meaning.status === "error") {
+    return (
+      <div className="text-sm text-destructive">
+        {meaning.message || "Meaning analysis encountered an error."}
+      </div>
+    );
+  }
+
+  const nodeResult = meaning.node_results?.find(r => r.node_id === node.node_id);
+
+  if (!nodeResult) {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        {meaning.message || `No meaning data for node ${node.node_id}.`}
+      </div>
+    );
+  }
+
+  const detected = nodeResult.lenses.filter(l => l.detected);
+  const notDetected = nodeResult.lenses.filter(l => !l.detected);
+
+  return (
+    <div className="space-y-4">
+      {detected.length > 0 && (
+        <FieldGroup title="Detected Lenses">
+          {detected.map(lens => (
+            <div key={lens.lens} className="py-2 border-b border-border/50 last:border-0">
+              <div className="flex items-center gap-2 mb-1">
+                <TagPill variant="gold">{lens.lens}</TagPill>
+              </div>
+              {lens.detail && (
+                <div className="text-sm text-foreground leading-relaxed ml-0.5 mt-1">{lens.detail}</div>
+              )}
+            </div>
+          ))}
+        </FieldGroup>
+      )}
+      {notDetected.length > 0 && (
+        <FieldGroup title="Not Detected">
+          <div className="flex flex-wrap gap-1.5">
+            {notDetected.map(lens => (
+              <TagPill key={lens.lens}>{lens.lens}</TagPill>
+            ))}
+          </div>
+        </FieldGroup>
+      )}
+      {detected.length === 0 && notDetected.length === 0 && (
+        <div className="text-sm text-muted-foreground italic">No lenses returned.</div>
+      )}
     </div>
   );
 }
