@@ -287,6 +287,14 @@ function OriginPanel({ origin }: { origin: OriginData }) {
 // ─── Meaning tab ───
 
 function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningData }) {
+  if (!meaning) {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        No meaning data returned for this node.
+      </div>
+    );
+  }
+
   if (meaning.status === "skipped") {
     return (
       <div className="text-sm text-muted-foreground italic">
@@ -302,23 +310,47 @@ function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningDa
     );
   }
 
-  const nodeResult = meaning.node_results?.find(r => r.node_id === node.node_id);
-
-  if (!nodeResult) {
+  if (!meaning.node_results || meaning.node_results.length === 0) {
     return (
       <div className="text-sm text-muted-foreground italic">
-        {meaning.message || `No meaning data for node ${node.node_id}.`}
+        {meaning.status === "executed"
+          ? "Meaning executed but returned no interpretable results."
+          : "No meaning data returned for this node."}
       </div>
     );
   }
 
-  // Normalize lenses: API may return string[] or MeaningLens[]
-  const normalizedLenses: MeaningLens[] = nodeResult.lenses.map(l =>
-    typeof l === "string" ? { lens: l, detected: true, detail: null } : l
-  );
+  const nodeResult = meaning.node_results.find(r => r.node_id === node.node_id);
+
+  if (!nodeResult) {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        Meaning data could not be mapped to this node.
+      </div>
+    );
+  }
+
+  const rawLenses = Array.isArray(nodeResult.lenses) ? nodeResult.lenses : [];
+
+  const normalizedLenses: MeaningLens[] = rawLenses
+    .filter((l): l is string | MeaningLens => l != null)
+    .map(l =>
+      typeof l === "string" ? { lens: l, detected: true, detail: null } : l
+    );
 
   const detected = normalizedLenses.filter(l => l.detected);
   const notDetected = normalizedLenses.filter(l => !l.detected);
+
+  const hasLenses = detected.length > 0 || notDetected.length > 0;
+  const hasSummary = typeof nodeResult.summary === "string" && nodeResult.summary.trim().length > 0;
+
+  if (!hasLenses && !hasSummary) {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        Meaning executed but returned no interpretable results.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -345,10 +377,7 @@ function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningDa
           </div>
         </FieldGroup>
       )}
-      {detected.length === 0 && notDetected.length === 0 && (
-        <div className="text-sm text-muted-foreground italic">No lenses returned.</div>
-      )}
-      {nodeResult.summary && (
+      {hasSummary && (
         <FieldGroup title="Summary">
           <div className="text-sm text-foreground leading-relaxed">{nodeResult.summary}</div>
         </FieldGroup>
