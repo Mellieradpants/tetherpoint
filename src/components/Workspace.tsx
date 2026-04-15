@@ -32,8 +32,9 @@ interface MeaningLens {
 
 interface MeaningNodeResult {
   node_id: string;
-  source_text: string;
-  lenses: MeaningLens[];
+  source_text?: string;
+  summary?: string;
+  lenses: (MeaningLens | string)[];
 }
 
 interface MeaningData {
