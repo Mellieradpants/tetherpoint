@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestHeaders } from "@tanstack/react-start/server";
 import { enforceAnalyzeSecurity } from "./analyze-security.server";
+import { runMeaningLayer } from "./meaning.server";
 
 // Minimal TypeScript reimplementation of the Tetherpoint pipeline for the preview.
 // The canonical implementation is backend/app/ (Python).
