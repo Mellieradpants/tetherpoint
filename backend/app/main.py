@@ -29,7 +29,11 @@ app = FastAPI(
 # e.g. "https://anchored-flow-stack.lovable.app,https://example.com"
 # Falls back to the published Lovable URL only.
 # ------------------------------------------------------------------
-_default_origins = "https://anchored-flow-stack.lovable.app"
+_default_origins = (
+    "https://anchored-flow-stack.lovable.app,"
+    "https://id-preview--37017f8b-59ad-473e-bfb5-253a00e3a6f0.lovable.app,"
+    "https://37017f8b-59ad-473e-bfb5-253a00e3a6f0.lovableproject.com"
+)
 _raw = os.environ.get("ALLOWED_ORIGINS", _default_origins)
 ALLOWED_ORIGINS = [o.strip() for o in _raw.split(",") if o.strip()]
 
