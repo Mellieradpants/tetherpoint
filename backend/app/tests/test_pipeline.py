@@ -563,3 +563,32 @@ class TestComplexHTMLIntegration:
         assert self.result.verification is not None
         assert self.result.output is not None
         assert self.result.errors is not None
+
+    # -- Sentence boundary: abbreviation handling -------------------------
+
+    def test_v_epa_not_split(self):
+        """'West Virginia v. EPA' must stay in a single node."""
+        for node in self.result.structure.nodes:
+            if "West Virginia v." in node.source_text:
+                assert "EPA" in node.source_text, (
+                    f"'v. EPA' was split: node {node.node_id} has '{node.source_text[:60]}'"
+                )
+                break
+        else:
+            pytest.fail("No node contains 'West Virginia v.' at all")
+
+    def test_no_inc_split(self):
+        """'Tesla Inc. reported' must stay in a single node."""
+        for node in self.result.structure.nodes:
+            if "Tesla" in node.source_text and "Inc." in node.source_text:
+                assert "reported" in node.source_text
+                break
+        else:
+            pytest.fail("No node contains 'Tesla Inc.'")
+
+    def test_order_no_not_split(self):
+        """'Order No. 2222-A' must stay in a single node."""
+        for node in self.result.structure.nodes:
+            if "Order No." in node.source_text:
+                assert "2222" in node.source_text
+                break
