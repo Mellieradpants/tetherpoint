@@ -24,13 +24,13 @@ class ContentType(str, Enum):
 
 
 class AnalyzeOptions(BaseModel):
-    run_meaning: bool = True
+    run_meaning: bool = False  # default off — requires authorization
     run_origin: bool = True
     run_verification: bool = True
 
 
 class AnalyzeRequest(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=500_000)
     content_type: ContentType
     options: AnalyzeOptions = Field(default_factory=AnalyzeOptions)
 

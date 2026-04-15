@@ -1,10 +1,18 @@
 """Tetherpoint API — source-anchored parsing stack."""
 
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.pipeline.runner import run_pipeline
 from app.schemas.models import AnalyzeRequest, PipelineResponse
+from app.security.guards import enforce_security
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+)
 
 app = FastAPI(
     title="Tetherpoint",
@@ -22,9 +30,10 @@ app.add_middleware(
 
 
 @app.post("/analyze", response_model=PipelineResponse)
-def analyze(request: AnalyzeRequest) -> PipelineResponse:
+def analyze(body: AnalyzeRequest, request: Request) -> PipelineResponse:
     """Run the locked 7-layer pipeline on the provided document."""
-    return run_pipeline(request)
+    body = enforce_security(body, request)
+    return run_pipeline(body)
 
 
 @app.get("/health")
