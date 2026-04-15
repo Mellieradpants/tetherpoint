@@ -6,6 +6,7 @@ interface StructureNode {
   node_id: string;
   source_text: string;
   normalized_text: string;
+  translated_text: string | null;
   actor: string | null;
   action: string | null;
   condition: string | null;
@@ -155,6 +156,14 @@ function TextTab({ node }: { node: StructureNode }) {
           {node.source_text}
         </div>
       </div>
+      {node.translated_text && (
+        <div>
+          <div className="text-[10px] font-semibold text-gold-muted uppercase tracking-widest mb-2">Translated Text</div>
+          <div className="rounded-md bg-surface border border-border/50 p-4 text-sm text-foreground leading-relaxed">
+            {node.translated_text}
+          </div>
+        </div>
+      )}
       <div>
         <div className="text-[10px] font-semibold text-gold-muted uppercase tracking-widest mb-2">Normalized Text</div>
         <div className="rounded-md bg-surface border border-border/50 p-4 text-sm text-muted-foreground leading-relaxed">
