@@ -293,6 +293,12 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   const currentNode = allNodes.find(n => n.node_id === selectedNodeId) || null;
   const outputData = data.output as Record<string, unknown>;
 
+  const tabs: { key: DetailTab; label: string }[] = [
+    { key: "structure", label: "Structure" },
+    { key: "text", label: "Text" },
+    { key: "signals", label: "Signals" },
+  ];
+
   type TopTab = "structure" | "text" | "signals" | "origin";
 
   const topTabs: { key: TopTab; label: string }[] = [
