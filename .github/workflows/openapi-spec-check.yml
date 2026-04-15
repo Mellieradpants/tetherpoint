@@ -1,0 +1,32 @@
+name: OpenAPI Spec Validation
+
+on:
+  push:
+    paths:
+      - "backend/openapi.yaml"
+      - "backend/app/schemas/models.py"
+      - "backend/app/tests/test_openapi_spec.py"
+  pull_request:
+    paths:
+      - "backend/openapi.yaml"
+      - "backend/app/schemas/models.py"
+      - "backend/app/tests/test_openapi_spec.py"
+
+jobs:
+  spec-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pydantic pyyaml pytest
+
+      - name: Validate OpenAPI spec against backend models
+        run: python -m pytest app/tests/test_openapi_spec.py -v --tb=short
