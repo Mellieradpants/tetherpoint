@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader, getRequestHeaders } from "@tanstack/react-start/server";
+import { enforceAnalyzeSecurity } from "./analyze-security.server";
 
 // Minimal TypeScript reimplementation of the Tetherpoint pipeline for the preview.
 // The canonical implementation is backend/app/ (Python).
@@ -130,6 +132,35 @@ export const analyzePipeline = createServerFn({ method: "POST" })
   .handler(async ({ data }: { data: AnalyzeInput }) => {
     const { content, content_type: contentType, options } = data;
 
+    // --- Security enforcement ---
+    let clientIp = "unknown";
+    try {
+      const forwarded = getRequestHeader("x-forwarded-for");
+      clientIp = forwarded?.split(",")[0].trim() ?? "unknown";
+    } catch {}
+
+    const authHeader = (() => { try { return getRequestHeader("authorization") ?? undefined; } catch { return undefined; } })();
+    const secretHeader = (() => { try { return getRequestHeader("x-analyze-secret") ?? undefined; } catch { return undefined; } })();
+
+    const security = enforceAnalyzeSecurity({
+      content,
+      content_type: contentType,
+      options,
+      clientIp,
+      authHeader,
+      analyzeSecretHeader: secretHeader,
+    });
+
+    if (security.reject) {
+      throw new Error(`[${security.reject.status}] ${security.reject.message}`);
+    }
+
+    // Force meaning off if not authorized
+    const effectiveOptions = {
+      ...options,
+      run_meaning: options.run_meaning && security.meaningAllowed,
+    };
+
     // 1. Input
     const inputResult = {
       raw_content: content,
@@ -150,7 +181,7 @@ export const analyzePipeline = createServerFn({ method: "POST" })
     // 4. Meaning
     const meaningResult = {
       status: "skipped",
-      message: options.run_meaning ? "No OPENAI_API_KEY configured" : "Skipped by options",
+      message: effectiveOptions.run_meaning ? "No OPENAI_API_KEY configured" : (options.run_meaning && !security.meaningAllowed ? "Unauthorized — meaning blocked" : "Skipped by options"),
       node_results: [],
     };
 
