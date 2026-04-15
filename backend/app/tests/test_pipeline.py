@@ -377,3 +377,187 @@ class TestFullPipeline:
         body = resp.json()
         required_keys = {"input", "structure", "selection", "meaning", "origin", "verification", "output", "errors"}
         assert required_keys == set(body.keys())
+
+
+# ---------------------------------------------------------------------------
+# Complex HTML integration tests
+# ---------------------------------------------------------------------------
+
+COMPLEX_HTML = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Federal Energy Commission Issues New Grid Reliability Standards</title>
+  <meta name="author" content="Sarah Chen">
+  <meta name="publish-date" content="2024-11-15T09:00:00Z">
+  <link rel="canonical" href="https://energy-regulatory-news.example.com/articles/ferc-grid-2024">
+  <meta property="og:title" content="FERC Issues New Grid Reliability Standards for 2025">
+  <meta property="og:description" content="Federal regulators mandate upgraded transmission infrastructure by Q3 2025">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://energy-regulatory-news.example.com/articles/ferc-grid-2024">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@EnergyRegNews">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    "headline": "FERC Issues New Grid Reliability Standards",
+    "author": {"@type": "Person", "name": "Sarah Chen"},
+    "publisher": {"@type": "Organization", "name": "Energy Regulatory News"},
+    "datePublished": "2024-11-15T09:00:00Z"
+  }
+  </script>
+</head>
+<body>
+  <article>
+    <p>The Federal Energy Regulatory Commission enacted Order No. 2222-A on November 1, 2024, requiring all interstate transmission operators to upgrade grid monitoring systems.</p>
+    <p>According to a study published in Nature Energy, distributed energy resources reduced peak load by 12% across ERCOT during summer 2024.</p>
+    <p>Tesla Inc. reported Q3 2024 revenue of $25.2 billion, exceeding analyst consensus estimates by 4.3%.</p>
+    <p>The Supreme Court ruled in West Virginia v. EPA that the Clean Air Act does not grant EPA authority to mandate generation-shifting measures.</p>
+    <p>Historical records confirm that the Northeast Blackout of 2003 affected approximately 55 million people across eight U.S. states and Ontario.</p>
+    <p>The company intends to accelerate its transition to renewable energy sources over the next decade.</p>
+  </article>
+</body>
+</html>'''
+
+
+class TestComplexHTMLIntegration:
+    """End-to-end tests with complex HTML containing OG tags, JSON-LD,
+    multiple assertion types, and CFS-triggering content."""
+
+    @pytest.fixture(autouse=True)
+    def _run_pipeline(self):
+        req = AnalyzeRequest(
+            content=COMPLEX_HTML,
+            content_type=ContentType.html,
+            options=AnalyzeOptions(run_meaning=False, run_origin=True, run_verification=True),
+        )
+        self.result = run_pipeline(req)
+
+    # -- Origin: OG tags --------------------------------------------------
+
+    def test_og_title_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+            + self.result.origin.distribution_signals
+        )
+        og_values = [s.value for s in all_signals if s.value]
+        assert any("FERC Issues New Grid Reliability Standards" in v for v in og_values)
+
+    def test_og_type_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+            + self.result.origin.distribution_signals
+        )
+        og_values = [s.value for s in all_signals if s.value]
+        assert any("article" == v for v in og_values)
+
+    def test_og_url_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+            + self.result.origin.distribution_signals
+        )
+        og_values = [s.value for s in all_signals if s.value]
+        assert any("ferc-grid-2024" in v for v in og_values)
+
+    def test_twitter_card_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+            + self.result.origin.distribution_signals
+        )
+        values = [s.value for s in all_signals if s.value]
+        assert any("summary_large_image" in v for v in values)
+
+    # -- Origin: JSON-LD --------------------------------------------------
+
+    def test_jsonld_publisher_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+        )
+        values = [s.value for s in all_signals if s.value]
+        assert any("Energy Regulatory News" in v for v in values)
+
+    def test_jsonld_author_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+        )
+        values = [s.value for s in all_signals if s.value]
+        assert any("Sarah Chen" in v for v in values)
+
+    # -- Origin: canonical URL --------------------------------------------
+
+    def test_canonical_url_extracted(self):
+        all_signals = (
+            self.result.origin.origin_identity_signals
+            + self.result.origin.origin_metadata_signals
+        )
+        values = [s.value for s in all_signals if s.value]
+        assert any("energy-regulatory-news.example.com" in v for v in values)
+
+    # -- CFS: intent_attribution blocking ---------------------------------
+
+    def test_intent_attribution_blocked(self):
+        """'The company intends to...' must be flagged with intent_attribution."""
+        intent_nodes = [
+            n for n in self.result.structure.nodes
+            if "intends" in n.source_text.lower()
+        ]
+        assert len(intent_nodes) >= 1
+        for node in intent_nodes:
+            assert "intent_attribution" in node.blocked_flags
+
+    def test_blocked_node_excluded_from_selection(self):
+        """CFS-blocked nodes must not appear in selected_nodes."""
+        selected_ids = {n.node_id for n in self.result.selection.selected_nodes}
+        for node in self.result.structure.nodes:
+            if node.blocked_flags:
+                assert node.node_id not in selected_ids
+
+    # -- Verification: FERC routing ---------------------------------------
+
+    def test_ferc_routing(self):
+        """The FERC/energy regulation paragraph should route to FERC record system."""
+        all_systems = []
+        for nr in self.result.verification.node_results:
+            all_systems.extend(nr.expected_record_systems)
+        assert "FERC" in all_systems
+
+    # -- Verification: court/PACER routing --------------------------------
+
+    def test_court_routing(self):
+        """The Supreme Court paragraph should route to court record systems."""
+        all_systems = []
+        for nr in self.result.verification.node_results:
+            all_systems.extend(nr.expected_record_systems)
+        assert any(s in ("CourtListener", "GovInfo", "PACER", "Supreme Court opinions", "Westlaw") for s in all_systems)
+
+    # -- Verification: multiple assertion types detected ------------------
+
+    def test_multiple_assertion_types(self):
+        """Pipeline should detect more than one distinct assertion type."""
+        types_found = {
+            nr.assertion_type
+            for nr in self.result.verification.node_results
+            if nr.assertion_type
+        }
+        assert len(types_found) >= 2
+
+    # -- Overall pipeline integrity ---------------------------------------
+
+    def test_no_errors(self):
+        assert self.result.errors == []
+
+    def test_all_8_keys_present(self):
+        assert self.result.input is not None
+        assert self.result.structure is not None
+        assert self.result.selection is not None
+        assert self.result.meaning is not None
+        assert self.result.origin is not None
+        assert self.result.verification is not None
+        assert self.result.output is not None
+        assert self.result.errors is not None
