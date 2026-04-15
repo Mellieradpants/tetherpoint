@@ -533,7 +533,6 @@ components:
         - origin
         - verification
         - output
-        - errors
       properties:
         input:
           $ref: "#/components/schemas/InputResult"

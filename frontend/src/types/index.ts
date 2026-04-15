@@ -28,7 +28,7 @@ export interface StructureNode {
   source_anchor: string;
   source_text: string;
   normalized_text: string;
-  translated_text: string | null;
+  
   actor: string | null;
   action: string | null;
   condition: string | null;

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/openapi-typescript@7.6.1/schema.json",
+  "inputFile": "openapi.yaml",
+  "outputFile": "../frontend/src/types/api.generated.ts",
+  "exportType": true,
+  "immutable": true,
+  "pathParamsAsTypes": false
+}

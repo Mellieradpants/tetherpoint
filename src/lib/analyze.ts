@@ -146,7 +146,7 @@ function buildNode(idx: number, text: string, isFragment: boolean = false) {
     source_anchor: `char:${idx}`,
     source_text: text,
     normalized_text: text.replace(/\s+/g, " ").trim(),
-    translated_text: null as string | null,
+    
     actor: null, action, condition: null, temporal: null,
     jurisdiction, mechanism, risk: null, tags, blocked_flags,
     who: null, what: null, when, where: null, why: null, how: null,
