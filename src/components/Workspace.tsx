@@ -300,7 +300,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col md:h-full">
       {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 border-b border-border bg-surface text-[11px]">
         <span className="text-muted-foreground">
@@ -336,10 +336,10 @@ export function Workspace({ data }: { data: PipelineResponse }) {
       )}
 
       {/* Desktop: side-by-side | Mobile: stacked */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row md:overflow-hidden">
 
         {/* Left: Structure tree */}
-        <div className="md:w-72 lg:w-80 border-b md:border-b-0 md:border-r border-border bg-surface/50 overflow-y-auto shrink-0">
+        <div className="md:w-72 lg:w-80 border-b md:border-b-0 md:border-r border-border bg-surface/50 md:overflow-y-auto shrink-0">
           <div className="px-3 py-2 border-b border-border/50">
             <span className="text-[10px] font-semibold text-gold-muted uppercase tracking-widest">Structure</span>
           </div>
@@ -413,9 +413,9 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </div>
 
         {/* Right: Detail panel */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col md:overflow-hidden">
           {showOrigin ? (
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="p-4 md:flex-1 md:overflow-y-auto">
               <div className="text-sm font-medium text-foreground mb-4">Origin Signals</div>
               <OriginPanel origin={data.origin} />
               <DebugJson data={data.origin} />
@@ -423,7 +423,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
           ) : currentNode ? (
             <>
               {/* Tabs */}
-              <div className="flex border-b border-border bg-surface/30">
+              <div className="flex border-b border-border bg-surface/30 sticky top-0 z-10 md:static">
                 {tabs.map(tab => (
                   <button
                     key={tab.key}
@@ -448,7 +448,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
               </div>
 
               {/* Tab content */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="p-4 pb-8 md:flex-1 md:overflow-y-auto">
                 {activeTab === "structure" && <StructureTab node={currentNode} />}
                 {activeTab === "text" && <TextTab node={currentNode} />}
                 {activeTab === "signals" && (
