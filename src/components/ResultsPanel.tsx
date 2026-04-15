@@ -319,7 +319,9 @@ export function ResultsPanel({ data }: { data: PipelineResponse }) {
           label={layer.label}
           color={layer.color}
           data={data[layer.key as keyof PipelineResponse]}
-        />
+        >
+          {layer.key === "origin" && <OriginPanel origin={data.origin} />}
+        </LayerSection>
       ))}
     </div>
   );
