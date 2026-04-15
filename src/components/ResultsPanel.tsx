@@ -209,7 +209,7 @@ function OriginPanel({ origin }: { origin: OriginData }) {
   );
 }
 
-
+function LayerSection({ label, color, data, defaultOpen, children }: {
   label: string; color: string; data: unknown; defaultOpen?: boolean; children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
