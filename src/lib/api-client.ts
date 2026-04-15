@@ -25,11 +25,9 @@ export async function analyzeDocument(request: AnalyzeRequest) {
   // Route through server function when meaning is enabled (needs secrets)
   if (request.options.run_meaning) {
     return analyzePipeline({
-      data: {
-        content: request.content,
-        content_type: request.content_type,
-        options: request.options,
-      },
+      content: request.content,
+      content_type: request.content_type,
+      options: request.options,
     });
   }
 
