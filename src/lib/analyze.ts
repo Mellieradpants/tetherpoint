@@ -54,7 +54,7 @@ const INTENT_RE = /\b(intend(?:s|ed)?|aim(?:s|ed)?|goal is)\b/i;
 // A subject pattern: capitalized word(s) or known entity patterns at start or after comma
 const SUBJECT_RE = /(?:^|[,;]\s*)(?:the\s+)?(?:[A-Z][a-zA-Z]*(?:\s+(?:of|and|for|the|in)\s+)?)+/;
 // A predicate pattern: a verb or verbal phrase
-const PREDICATE_RE = /\b(is|are|was|were|has|had|have|will|shall|must|may|can|could|would|should|do|does|did|said|says|announced|stated|reported|declared|enacted|issued|published|ruled|filed|requires?|provides?|establishes?|creates?|removes?|amends?|authorizes?|prohibits?|mandates?|orders?|determines?|concludes?|finds?|holds?|decides?|grants?|denies?|proposes?|adopts?|implements?|enforces?|revokes?|repeals?|signed|approved|upheld|affirmed|reversed|dismissed)\b/i;
+const PREDICATE_RE = /\b(is|are|was|were|has|had|have|will|shall|must|may|can|could|would|should|do|does|did|said|says|announced|stated|reported|declared|enacted|issued|published|ruled|filed|requires?|provides?|establishes?|creates?|removes?|amends?|authorizes?|prohibits?|mandates?|orders?|determines?|concludes?|finds?|holds?|decides?|grants?|denies?|proposes?|adopts?|implements?|enforces?|revokes?|repeals?|signed|approved|upheld|affirmed|reversed|dismissed|passed|submitted|allocated|transferred|designated|certified|assessed|evaluated|reviewed|examined|investigated|convicted|sentenced|regulated|monitored|administered|operated|maintained|controlled|directed|recommended|restricted|expanded|extended|renewed|modified|revised|updated|replaced|eliminated|reduced|increased|set|defined|specified|identified|classified|appointed|elected|nominated|confirmed|ratified|endorsed|supported|opposed|vetoed|blocked|delayed|complied?)\b/i;
 
 /**
  * Check if a text segment is a semantically complete sentence
