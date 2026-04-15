@@ -3,7 +3,7 @@
  * No server secrets are sent from the frontend.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const API_BASE = import.meta.env.VITE_API_URL ?? "https://anchored-flow-stack.onrender.com";
 
 interface AnalyzeRequest {
   content: string;
