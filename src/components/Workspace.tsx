@@ -412,6 +412,9 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </span>
         <div className="flex-1" />
         <span className="text-muted-foreground">
+          Meaning: <span className={`font-medium ${outputData.meaning_status === "executed" ? "text-primary" : outputData.meaning_status === "error" ? "text-destructive" : "text-foreground"}`}>{String(outputData.meaning_status ?? "—")}</span>
+        </span>
+        <span className="text-muted-foreground">
           Origin: <span className="text-foreground">{String(outputData.origin_status ?? "—")}</span>
         </span>
         <span className="text-muted-foreground">
