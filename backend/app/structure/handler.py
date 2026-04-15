@@ -28,19 +28,46 @@ def lns_normalize(text: str) -> str:
 # SSE – Source Statement Extraction
 # ---------------------------------------------------------------------------
 
-_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
+# Abbreviations that should NOT trigger sentence splits
+_ABBREVIATIONS = {
+    "v", "vs", "mr", "mrs", "ms", "dr", "jr", "sr", "inc", "corp", "ltd",
+    "co", "no", "nos", "st", "ave", "blvd", "dept", "div", "est", "govt",
+    "assn", "bros", "gen", "gov", "hon", "prof", "rep", "sen", "sgt",
+    "etc", "al", "approx", "dept", "fig", "op", "vol", "rev", "ed",
+}
 
 
 def sse_extract(text: str) -> list[dict[str, str]]:
-    """Split text into explicit statement spans with source anchors."""
-    sentences = _SENTENCE_RE.split(text)
+    """Split text into explicit statement spans with source anchors.
+
+    Uses a two-pass approach: first split on sentence-ending punctuation
+    followed by whitespace and a capital letter, then re-join splits that
+    were caused by abbreviations (e.g. 'v.', 'No.', 'Inc.').
+    """
+    # Split on period/!/?  followed by whitespace and uppercase
+    raw_parts = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text)
+
+    # Re-join parts where the previous part ends with a known abbreviation
+    merged: list[str] = []
+    for part in raw_parts:
+        if merged:
+            prev = merged[-1]
+            # Check if the previous chunk ends with "abbrev."
+            m = re.search(r"\b(\w+)\.\s*$", prev)
+            if m and m.group(1).lower() in _ABBREVIATIONS:
+                merged[-1] = prev + " " + part
+                continue
+        merged.append(part)
+
     results = []
     offset = 0
-    for sent in sentences:
+    for sent in merged:
         sent = sent.strip()
         if not sent:
             continue
         start = text.find(sent, offset)
+        if start == -1:
+            start = offset
         anchor = f"char:{start}-{start + len(sent)}"
         results.append({"text": sent, "anchor": anchor})
         offset = start + len(sent)
