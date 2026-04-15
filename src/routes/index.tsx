@@ -47,7 +47,7 @@ function Index() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background md:h-screen">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface shrink-0">
         <div className="flex items-center gap-3">
@@ -84,7 +84,7 @@ function Index() {
 
       {/* Workspace */}
       {result ? (
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 md:overflow-hidden">
           <Workspace data={result} />
         </div>
       ) : !loading && (
