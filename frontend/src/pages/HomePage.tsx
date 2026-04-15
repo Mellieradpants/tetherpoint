@@ -14,7 +14,17 @@ export function HomePage() {
     setError(null);
     setResult(null);
     try {
-      const data = await analyzeDocument(request);
+      const response = await fetch("/api/analyze", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(request),
+});
+
+if (!response.ok) {
+  throw new Error("Analysis failed");
+}
+
+const data = await response.json();
       setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
