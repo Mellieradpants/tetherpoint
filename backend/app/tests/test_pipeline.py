@@ -520,7 +520,6 @@ class TestComplexHTMLIntegration:
 
     # -- Verification: FERC routing ---------------------------------------
 
-    def test_ferc_routing(self):
     def test_energy_regulation_routing(self):
         """The FERC/energy regulation node should route to legislative or energy record systems."""
         all_systems = []
