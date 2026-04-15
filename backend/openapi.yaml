@@ -82,6 +82,8 @@ paths:
                     type: string
                     enum: [ok]
 
+
+components:
   securitySchemes:
     analyzeSecret:
       type: apiKey
@@ -91,7 +93,6 @@ paths:
         Shared secret for server-to-backend authentication.
         All /analyze requests must include this header.
 
-components:
   schemas:
 
     # -----------------------------------------------------------------------
