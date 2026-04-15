@@ -72,7 +72,9 @@ components:
       properties:
         run_meaning:
           type: boolean
-          default: true
+          default: false
+          description: >
+            Defaults to false. Requires valid x-analyze-secret header to execute.
         run_origin:
           type: boolean
           default: true
