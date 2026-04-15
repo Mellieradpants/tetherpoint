@@ -24,6 +24,24 @@ interface StructureNode {
   how: string | null;
 }
 
+interface MeaningLens {
+  lens: string;
+  detected: boolean;
+  detail: string | null;
+}
+
+interface MeaningNodeResult {
+  node_id: string;
+  source_text: string;
+  lenses: MeaningLens[];
+}
+
+interface MeaningData {
+  status: string;
+  message: string | null;
+  node_results: MeaningNodeResult[];
+}
+
 interface VerificationNode {
   node_id: string;
   assertion_detected: boolean;
@@ -51,7 +69,7 @@ export interface PipelineResponse {
   input: Record<string, unknown>;
   structure: { nodes: StructureNode[]; node_count: number };
   selection: { selected_nodes: StructureNode[]; excluded_nodes: StructureNode[]; selection_log: string[] };
-  meaning: Record<string, unknown>;
+  meaning: MeaningData;
   origin: OriginData;
   verification: { status: string; node_results: VerificationNode[] };
   output: Record<string, unknown>;
@@ -95,7 +113,7 @@ function TagPill({ children, variant = "default" }: { children: React.ReactNode;
 
 // ─── Detail tabs ───
 
-type DetailTab = "structure" | "text" | "signals";
+type DetailTab = "structure" | "text" | "meaning" | "signals";
 
 function StructureTab({ node }: { node: StructureNode }) {
   const hasActors = node.actor || node.who;
@@ -265,6 +283,69 @@ function OriginPanel({ origin }: { origin: OriginData }) {
   );
 }
 
+// ─── Meaning tab ───
+
+function MeaningTab({ node, meaning }: { node: StructureNode; meaning: MeaningData }) {
+  if (meaning.status === "skipped") {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        {meaning.message || "Meaning analysis was skipped."}
+      </div>
+    );
+  }
+  if (meaning.status === "error") {
+    return (
+      <div className="text-sm text-destructive">
+        {meaning.message || "Meaning analysis encountered an error."}
+      </div>
+    );
+  }
+
+  const nodeResult = meaning.node_results?.find(r => r.node_id === node.node_id);
+
+  if (!nodeResult) {
+    return (
+      <div className="text-sm text-muted-foreground italic">
+        {meaning.message || `No meaning data for node ${node.node_id}.`}
+      </div>
+    );
+  }
+
+  const detected = nodeResult.lenses.filter(l => l.detected);
+  const notDetected = nodeResult.lenses.filter(l => !l.detected);
+
+  return (
+    <div className="space-y-4">
+      {detected.length > 0 && (
+        <FieldGroup title="Detected Lenses">
+          {detected.map(lens => (
+            <div key={lens.lens} className="py-2 border-b border-border/50 last:border-0">
+              <div className="flex items-center gap-2 mb-1">
+                <TagPill variant="gold">{lens.lens}</TagPill>
+              </div>
+              {lens.detail && (
+                <div className="text-sm text-foreground leading-relaxed ml-0.5 mt-1">{lens.detail}</div>
+              )}
+            </div>
+          ))}
+        </FieldGroup>
+      )}
+      {notDetected.length > 0 && (
+        <FieldGroup title="Not Detected">
+          <div className="flex flex-wrap gap-1.5">
+            {notDetected.map(lens => (
+              <TagPill key={lens.lens}>{lens.lens}</TagPill>
+            ))}
+          </div>
+        </FieldGroup>
+      )}
+      {detected.length === 0 && notDetected.length === 0 && (
+        <div className="text-sm text-muted-foreground italic">No lenses returned.</div>
+      )}
+    </div>
+  );
+}
+
 // ─── Debug JSON toggle ───
 
 function DebugJson({ data }: { data: unknown }) {
@@ -305,14 +386,16 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   const tabs: { key: DetailTab; label: string }[] = [
     { key: "structure", label: "Structure" },
     { key: "text", label: "Text" },
+    { key: "meaning", label: "Meaning" },
     { key: "signals", label: "Verification" },
   ];
 
-  type TopTab = "structure" | "text" | "signals" | "origin";
+  type TopTab = "structure" | "text" | "meaning" | "signals" | "origin";
 
   const topTabs: { key: TopTab; label: string }[] = [
     { key: "structure", label: "Structure" },
     { key: "text", label: "Text" },
+    { key: "meaning", label: "Meaning" },
     { key: "signals", label: "Verification" },
     { key: "origin", label: "Origin" },
   ];
@@ -383,6 +466,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </div>
         {tab === "structure" && <StructureTab node={currentNode} />}
         {tab === "text" && <TextTab node={currentNode} />}
+        {tab === "meaning" && <MeaningTab node={currentNode} meaning={data.meaning} />}
         {tab === "signals" && (
           <SignalsTab
             node={currentNode}
@@ -460,6 +544,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         {/* Tab content — full page, no inner scroll */}
         {mobileTab === "structure" && nodeList}
         {mobileTab === "text" && renderNodeDetail("text")}
+        {mobileTab === "meaning" && renderNodeDetail("meaning")}
         {mobileTab === "signals" && renderNodeDetail("signals")}
         {mobileTab === "origin" && (
           <div className="px-5 py-6 pb-12">
@@ -542,6 +627,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
               <div className="p-4 pb-8 flex-1 overflow-y-auto">
                 {activeTab === "structure" && <StructureTab node={currentNode} />}
                 {activeTab === "text" && <TextTab node={currentNode} />}
+                {activeTab === "meaning" && <MeaningTab node={currentNode} meaning={data.meaning} />}
                 {activeTab === "signals" && (
                   <SignalsTab
                     node={currentNode}
