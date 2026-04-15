@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader, getRequestHeaders } from "@tanstack/react-start/server";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { enforceAnalyzeSecurity } from "./analyze-security.server";
 import { runMeaningLayer } from "./meaning.server";
 
