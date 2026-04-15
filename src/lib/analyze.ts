@@ -180,11 +180,21 @@ export const analyzePipeline = createServerFn({ method: "POST" })
     const excluded = nodes.filter(n => !selected.includes(n));
 
     // 4. Meaning
-    const meaningResult = {
-      status: "skipped",
-      message: effectiveOptions.run_meaning ? "No OPENAI_API_KEY configured" : (options.run_meaning && !security.meaningAllowed ? "Unauthorized — meaning blocked" : "Skipped by options"),
-      node_results: [],
-    };
+    let meaningResult: { status: string; message: string; node_results: Array<{ node_id: string; lenses: string[]; summary: string | null }> };
+
+    if (effectiveOptions.run_meaning) {
+      meaningResult = await runMeaningLayer(
+        selected.map((n) => ({ node_id: n.node_id, source_text: n.source_text })),
+      );
+    } else {
+      meaningResult = {
+        status: "skipped",
+        message: options.run_meaning && !security.meaningAllowed
+          ? "Unauthorized — meaning blocked"
+          : "Skipped by options",
+        node_results: [],
+      };
+    }
 
     // 5. Origin
     const originSignals = options.run_origin && contentType === "html"
