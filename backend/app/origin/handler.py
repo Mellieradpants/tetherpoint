@@ -8,33 +8,29 @@ from __future__ import annotations
 import json
 import re
 import xml.etree.ElementTree as ET
-from typing import Any
 
 from bs4 import BeautifulSoup
 
-from app.schemas.models import ContentType, InputResult, OriginResult
+from app.schemas.models import ContentType, InputResult, OriginResult, OriginSignal
 
 
-def _extract_html_origin(content: str) -> dict[str, Any]:
+def _extract_html_origin(content: str) -> dict:
     soup = BeautifulSoup(content, "html.parser")
-    identity: list[dict[str, Any]] = []
-    metadata: list[dict[str, Any]] = []
-    distribution: list[dict[str, Any]] = []
+    identity: list[OriginSignal] = []
+    metadata: list[OriginSignal] = []
+    distribution: list[OriginSignal] = []
     trace: list[str] = []
 
-    # Canonical URL
     canonical = soup.find("link", rel="canonical")
     if canonical and canonical.get("href"):
-        identity.append({"signal": "canonical_url", "value": canonical["href"]})
+        identity.append(OriginSignal(signal="canonical_url", value=canonical["href"]))
         trace.append("Found canonical link")
 
-    # Title
     title_tag = soup.find("title")
     if title_tag and title_tag.string:
-        metadata.append({"signal": "title", "value": title_tag.string.strip()})
+        metadata.append(OriginSignal(signal="title", value=title_tag.string.strip()))
         trace.append("Found title tag")
 
-    # Meta tags
     for meta in soup.find_all("meta"):
         name = (meta.get("name") or meta.get("property") or "").lower()
         content_val = meta.get("content", "")
@@ -42,43 +38,37 @@ def _extract_html_origin(content: str) -> dict[str, Any]:
             continue
 
         if name == "author":
-            identity.append({"signal": "author", "value": content_val})
+            identity.append(OriginSignal(signal="author", value=content_val))
             trace.append("Found author meta")
         elif name in ("article:published_time", "date", "pubdate"):
-            metadata.append({"signal": "publish_timestamp", "value": content_val})
+            metadata.append(OriginSignal(signal="publish_timestamp", value=content_val))
             trace.append(f"Found publish time via {name}")
         elif name.startswith("og:"):
-            distribution.append({"signal": name, "value": content_val, "category": "opengraph"})
+            distribution.append(OriginSignal(signal=name, value=content_val, category="opengraph"))
             trace.append(f"Found OG tag: {name}")
         elif name.startswith("twitter:"):
-            distribution.append({"signal": name, "value": content_val, "category": "twitter_card"})
+            distribution.append(OriginSignal(signal=name, value=content_val, category="twitter_card"))
             trace.append(f"Found Twitter card: {name}")
 
-    # JSON-LD
     for script in soup.find_all("script", type="application/ld+json"):
         try:
             ld = json.loads(script.string or "")
             if isinstance(ld, dict):
                 pub = ld.get("publisher")
                 if isinstance(pub, dict):
-                    identity.append({"signal": "jsonld_publisher", "value": pub.get("name", str(pub))})
+                    identity.append(OriginSignal(signal="jsonld_publisher", value=pub.get("name", str(pub))))
                     trace.append("Found JSON-LD publisher")
                 if ld.get("@type"):
-                    metadata.append({"signal": "jsonld_type", "value": ld["@type"]})
+                    metadata.append(OriginSignal(signal="jsonld_type", value=ld["@type"]))
         except (json.JSONDecodeError, TypeError):
             pass
 
-    return {
-        "identity": identity,
-        "metadata": metadata,
-        "distribution": distribution,
-        "trace": trace,
-    }
+    return {"identity": identity, "metadata": metadata, "distribution": distribution, "trace": trace}
 
 
-def _extract_json_origin(content: str) -> dict[str, Any]:
-    identity: list[dict[str, Any]] = []
-    metadata: list[dict[str, Any]] = []
+def _extract_json_origin(content: str) -> dict:
+    identity: list[OriginSignal] = []
+    metadata: list[OriginSignal] = []
     trace: list[str] = []
 
     try:
@@ -95,18 +85,18 @@ def _extract_json_origin(content: str) -> dict[str, Any]:
     for key, val in data.items():
         lk = key.lower()
         if lk in source_keys and isinstance(val, str):
-            identity.append({"signal": lk, "value": val})
+            identity.append(OriginSignal(signal=lk, value=val))
             trace.append(f"Found top-level key: {key}")
         elif lk in time_keys and isinstance(val, str):
-            metadata.append({"signal": lk, "value": val})
+            metadata.append(OriginSignal(signal=lk, value=val))
             trace.append(f"Found top-level key: {key}")
 
     return {"identity": identity, "metadata": metadata, "distribution": [], "trace": trace}
 
 
-def _extract_xml_origin(content: str) -> dict[str, Any]:
-    identity: list[dict[str, Any]] = []
-    metadata: list[dict[str, Any]] = []
+def _extract_xml_origin(content: str) -> dict:
+    identity: list[OriginSignal] = []
+    metadata: list[OriginSignal] = []
     trace: list[str] = []
 
     try:
@@ -123,22 +113,22 @@ def _extract_xml_origin(content: str) -> dict[str, Any]:
         if not text:
             continue
         if tag in source_tags:
-            identity.append({"signal": tag, "value": text})
+            identity.append(OriginSignal(signal=tag, value=text))
             trace.append(f"Found XML element: {elem.tag}")
         elif tag in time_tags:
-            metadata.append({"signal": tag, "value": text})
+            metadata.append(OriginSignal(signal=tag, value=text))
             trace.append(f"Found XML element: {elem.tag}")
 
     return {"identity": identity, "metadata": metadata, "distribution": [], "trace": trace}
 
 
-def _extract_text_origin(content: str) -> dict[str, Any]:
-    identity: list[dict[str, Any]] = []
+def _extract_text_origin(content: str) -> dict:
+    identity: list[OriginSignal] = []
     trace: list[str] = []
 
     author_match = re.search(r"(?:by|author[:\s]+)([A-Z][a-z]+(?: [A-Z][a-z]+)+)", content, re.I)
     if author_match:
-        identity.append({"signal": "author", "value": author_match.group(1)})
+        identity.append(OriginSignal(signal="author", value=author_match.group(1)))
         trace.append("Found author pattern in text")
 
     return {"identity": identity, "metadata": [], "distribution": [], "trace": trace}

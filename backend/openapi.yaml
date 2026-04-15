@@ -150,40 +150,33 @@ components:
           type: string
           description: LNS-normalized text (whitespace/line cleanup only, no semantic rewriting)
         actor:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "AAC: explicit actor if present"
         action:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "AAC: explicit action if present"
         condition:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "AAC: explicit condition if present"
         temporal:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "TPS: explicit deadline, trigger, timing if present"
         jurisdiction:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "SJM: explicit system, jurisdiction, authority if present"
         mechanism:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "MPS: explicit enforcement, process step, procedural flow if present"
         risk:
-          type: object
-          nullable: true
+          oneOf:
+            - type: "object"
+              properties:
+                likelihood:
+                  type: ["string", "null"]
+                impact:
+                  type: ["string", "null"]
+            - type: "null"
           description: "RDS: separated likelihood and impact language"
-          properties:
-            likelihood:
-              type: string
-              nullable: true
-            impact:
-              type: string
-              nullable: true
         tags:
           type: array
           items:
@@ -197,28 +190,22 @@ components:
             CFS violation flags
             (intent_attribution, emotional_labeling, causal_inference, narrative_language)
         who:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit who if directly present"
         what:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit what if directly present"
         when:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit when if directly present"
         where:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit where if directly present"
         why:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit why if directly present"
         how:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: "5W1H: explicit how if directly present"
 
     StructureResult:
@@ -284,8 +271,7 @@ components:
         detected:
           type: boolean
         detail:
-          type: string
-          nullable: true
+          type: ["string", "null"]
 
     MeaningNodeResult:
       type: object
@@ -313,8 +299,7 @@ components:
             "executed" if AI ran, "skipped" if no API key or disabled,
             "error" if AI call failed
         message:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: Explanation when status is skipped or error
         node_results:
           type: array
@@ -339,8 +324,7 @@ components:
         value:
           type: string
         category:
-          type: string
-          nullable: true
+          type: ["string", "null"]
           description: Signal category (e.g. opengraph, twitter_card) — distribution signals only
 
     OriginResult:
@@ -392,18 +376,18 @@ components:
         assertion_detected:
           type: boolean
         assertion_type:
-          type: string
-          nullable: true
-          enum:
-            - legal_legislative
-            - court_case_law
-            - government_publication
-            - scientific_biomedical
-            - statistical_public_data
-            - corporate_financial
-            - infrastructure_energy
-            - historical_archival
-            - null
+          oneOf:
+            - type: string
+              enum:
+                - legal_legislative
+                - court_case_law
+                - government_publication
+                - scientific_biomedical
+                - statistical_public_data
+                - corporate_financial
+                - infrastructure_energy
+                - historical_archival
+            - type: "null"
           description: Classification of the assertion if detected
         verification_path_available:
           type: boolean
@@ -418,8 +402,7 @@ components:
             Examples: Congress.gov, Federal Register, GovInfo, CourtListener,
             PubMed, SEC EDGAR, Census, EIA, FERC, NERC, JSTOR, National Archives
         verification_notes:
-          type: string
-          nullable: true
+          type: ["string", "null"]
 
     VerificationResult:
       type: object
