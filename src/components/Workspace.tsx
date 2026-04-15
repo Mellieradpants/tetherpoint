@@ -386,14 +386,16 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   const tabs: { key: DetailTab; label: string }[] = [
     { key: "structure", label: "Structure" },
     { key: "text", label: "Text" },
+    { key: "meaning", label: "Meaning" },
     { key: "signals", label: "Verification" },
   ];
 
-  type TopTab = "structure" | "text" | "signals" | "origin";
+  type TopTab = "structure" | "text" | "meaning" | "signals" | "origin";
 
   const topTabs: { key: TopTab; label: string }[] = [
     { key: "structure", label: "Structure" },
     { key: "text", label: "Text" },
+    { key: "meaning", label: "Meaning" },
     { key: "signals", label: "Verification" },
     { key: "origin", label: "Origin" },
   ];
@@ -464,6 +466,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </div>
         {tab === "structure" && <StructureTab node={currentNode} />}
         {tab === "text" && <TextTab node={currentNode} />}
+        {tab === "meaning" && <MeaningTab node={currentNode} meaning={data.meaning} />}
         {tab === "signals" && (
           <SignalsTab
             node={currentNode}
