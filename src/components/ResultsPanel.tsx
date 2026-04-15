@@ -160,7 +160,56 @@ function NodeViewer({ data }: { data: PipelineResponse }) {
   );
 }
 
-function LayerSection({ label, color, data, defaultOpen, children }: {
+function OriginSignalRow({ sig }: { sig: OriginSignal }) {
+  return (
+    <div className="flex items-center gap-2 rounded bg-secondary/50 px-2 py-1.5 text-xs">
+      <span className="font-mono font-medium text-muted-foreground shrink-0">{sig.signal}</span>
+      <span className="flex-1 text-foreground truncate">{sig.value}</span>
+      {sig.category && (
+        <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground">{sig.category}</span>
+      )}
+    </div>
+  );
+}
+
+function OriginSignalGroup({ title, icon, signals }: { title: string; icon: string; signals: OriginSignal[] }) {
+  if (signals.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <span>{icon}</span>
+        <span>{title}</span>
+        <span className="text-muted-foreground">({signals.length})</span>
+      </div>
+      <div className="space-y-1">
+        {signals.map((sig, i) => <OriginSignalRow key={`${sig.signal}-${i}`} sig={sig} />)}
+      </div>
+    </div>
+  );
+}
+
+function OriginPanel({ origin }: { origin: OriginData }) {
+  const total = origin.origin_identity_signals.length + origin.origin_metadata_signals.length + origin.distribution_signals.length;
+
+  if (origin.status === "skipped") {
+    return <div className="text-xs text-muted-foreground italic">Origin analysis was skipped.</div>;
+  }
+
+  if (total === 0) {
+    return <div className="text-xs text-muted-foreground italic">No origin signals detected.</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-muted-foreground">{total} signal{total !== 1 ? "s" : ""} extracted</div>
+      <OriginSignalGroup title="Identity" icon="👤" signals={origin.origin_identity_signals} />
+      <OriginSignalGroup title="Metadata" icon="📄" signals={origin.origin_metadata_signals} />
+      <OriginSignalGroup title="Distribution" icon="🌐" signals={origin.distribution_signals} />
+    </div>
+  );
+}
+
+
   label: string; color: string; data: unknown; defaultOpen?: boolean; children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
