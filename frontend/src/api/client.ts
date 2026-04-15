@@ -12,8 +12,18 @@ export async function analyzeDocument(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`API error ${response.status}: ${text}`);
+    // Log full error for debugging, show safe message to user
+    try {
+      const text = await response.text();
+      console.error(`API error ${response.status}:`, text);
+    } catch {}
+    throw new Error(
+      response.status === 422
+        ? "Invalid request — please check your input."
+        : response.status === 429
+          ? "Too many requests — please wait and try again."
+          : "Analysis failed. Please try again."
+    );
   }
 
   return response.json();

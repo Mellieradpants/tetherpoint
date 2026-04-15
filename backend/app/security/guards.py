@@ -38,8 +38,9 @@ def is_meaning_authorized(request: Request) -> bool:
         if client_secret == server_secret:
             return True
 
+    # Bearer token: validate against ANALYZE_SECRET if configured
     auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer ") and len(auth_header) > 10:
+    if server_secret and auth_header == f"Bearer {server_secret}":
         return True
 
     return False
