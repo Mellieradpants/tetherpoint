@@ -113,12 +113,11 @@ export function enforceAnalyzeSecurity(input: {
       meaningAllowed = true;
     }
 
-    // Bearer token auth
+    // Bearer token: validate against ANALYZE_SECRET only
     if (
       !meaningAllowed &&
-      input.authHeader &&
-      input.authHeader.startsWith("Bearer ") &&
-      input.authHeader.length > 10
+      serverSecret &&
+      input.authHeader === `Bearer ${serverSecret}`
     ) {
       meaningAllowed = true;
     }
