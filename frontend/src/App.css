@@ -1,0 +1,275 @@
+:root {
+  --bg: #fafafa;
+  --fg: #111;
+  --border: #ddd;
+  --muted: #666;
+  --accent: #0057b7;
+  --error: #c00;
+  --card-bg: #fff;
+  --code-bg: #f0f0f0;
+  --detected: #e6f4ea;
+  --blocked: #fde8e8;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.home-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+header {
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* Form */
+.input-form {
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  resize: vertical;
+  background: var(--card-bg);
+}
+
+select {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  background: var(--card-bg);
+}
+
+.form-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.checkbox-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  padding: 0.5rem 1.5rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+button[type="submit"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Errors */
+.error-banner {
+  background: var(--blocked);
+  color: var(--error);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  font-size: 0.8125rem;
+}
+
+.error {
+  color: var(--error);
+  font-size: 0.8125rem;
+}
+
+.errors {
+  margin-top: 0.5rem;
+}
+
+/* Results */
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.layer-section {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.layer-section h3 {
+  background: var(--code-bg);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.layer-content {
+  padding: 1rem;
+  font-size: 0.8125rem;
+}
+
+.layer-content p {
+  margin-bottom: 0.5rem;
+}
+
+.layer-content pre {
+  background: var(--code-bg);
+  padding: 0.75rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+code {
+  background: var(--code-bg);
+  padding: 0.125rem 0.375rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+details {
+  margin-top: 0.75rem;
+}
+
+summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--accent);
+}
+
+/* Nodes */
+.node-table h4 {
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.node-card {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--card-bg);
+}
+
+.node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
+.anchor {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.node-text {
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  padding: 0.375rem;
+  background: var(--code-bg);
+  border-radius: 3px;
+}
+
+.node-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.field {
+  font-size: 0.6875rem;
+  background: var(--code-bg);
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+}
+
+.field.blocked {
+  background: var(--blocked);
+  color: var(--error);
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Meaning lenses */
+.lens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.lens {
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  background: var(--code-bg);
+}
+
+.lens.detected {
+  background: var(--detected);
+}
+
+.detail {
+  color: var(--muted);
+}
+
+.note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
