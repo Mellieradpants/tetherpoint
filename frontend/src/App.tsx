@@ -2,7 +2,7 @@ import { useState } from "react";
 import { InputForm } from "./components/InputForm";
 import { ResultsView } from "./components/ResultsView";
 import type { AnalyzeRequest, PipelineResponse } from "./types";
-import { analyzeDocument } from "./api/client";
+import { analyzeDocumentRequest } from "./api/client";
 
 function App() {
   const [result, setResult] = useState<PipelineResponse | null>(null);
@@ -11,10 +11,10 @@ function App() {
   const handleSubmit = async (request: AnalyzeRequest) => {
     setLoading(true);
     try {
-      const data = await analyzeDocument(request);
+      const data = await analyzeDocumentRequest(request);
       setResult(data);
     } catch (err) {
-      console.error(err);
+      console.error("Analysis failed:", err);
       alert("Analysis failed");
     } finally {
       setLoading(false);
