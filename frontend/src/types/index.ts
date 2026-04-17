@@ -1,3 +1,4 @@
+
 export interface AnalyzeOptions {
   run_meaning: boolean;
   run_origin: boolean;
@@ -28,7 +29,6 @@ export interface StructureNode {
   source_anchor: string;
   source_text: string;
   normalized_text: string;
-  
   actor: string | null;
   action: string | null;
   condition: string | null;
@@ -65,8 +65,9 @@ export interface MeaningLens {
 
 export interface MeaningNodeResult {
   node_id: string;
-  source_text: string;
-  lenses: MeaningLens[];
+  source_text?: string;
+  summary?: string;
+  lenses: Array<MeaningLens | string>;
 }
 
 export interface MeaningResult {
@@ -78,7 +79,7 @@ export interface MeaningResult {
 export interface OriginSignal {
   signal: string;
   value: string;
-  category?: string;
+  category: string | null;
 }
 
 export interface OriginResult {
@@ -86,7 +87,7 @@ export interface OriginResult {
   origin_identity_signals: OriginSignal[];
   origin_metadata_signals: OriginSignal[];
   distribution_signals: OriginSignal[];
-  evidence_trace: string[];
+  evidence_trace: unknown[];
 }
 
 export interface VerificationNodeResult {
@@ -113,6 +114,12 @@ export interface OutputResult {
   verification_status: string;
 }
 
+export interface PipelineError {
+  layer: string;
+  error: string;
+  details?: unknown;
+}
+
 export interface PipelineResponse {
   input: InputResult;
   structure: StructureResult;
@@ -121,4 +128,5 @@ export interface PipelineResponse {
   origin: OriginResult;
   verification: VerificationResult;
   output: OutputResult;
+  errors: PipelineError[];
 }
