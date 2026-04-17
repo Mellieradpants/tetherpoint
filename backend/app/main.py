@@ -40,7 +40,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+from fastapi.responses import Response
 
+@app.options("/analyze")
+async def options_analyze():
+    return Response(status_code=200)
 
 @app.post("/analyze", response_model=PipelineResponse)
 def analyze(
