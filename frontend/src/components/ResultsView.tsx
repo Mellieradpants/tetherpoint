@@ -1,3 +1,4 @@
+
 import { PipelineResponse, StructureNode } from "../types";
 
 interface ResultsViewProps {
@@ -67,4 +68,18 @@ export function ResultsView({ data }: ResultsViewProps) {
 
       <section className="layer-section">
         <h3>Verification</h3>
-       
+        <div className="layer-content">
+          <p>Status: {data.verification.status}</p>
+        </div>
+      </section>
+
+      <section className="layer-section">
+        <h3>Output</h3>
+        <div className="layer-content">
+          <pre>{JSON.stringify(data.output, null, 2)}</pre>
+        </div>
+      </section>
+    </div>
+  );
+}
+
