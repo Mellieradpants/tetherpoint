@@ -6,7 +6,6 @@ import type {
   VerificationNodeResult,
 } from "../types";
 
-
 interface ResultsViewProps {
   data: PipelineResponse;
 }
@@ -494,4 +493,3 @@ export function ResultsView({ data }: ResultsViewProps) {
     </div>
   );
 }
-
