@@ -1,8 +1,10 @@
 import { AnalyzeRequest, PipelineResponse } from "../types";
 
-const API_BASE_URL =
+const API_BASE_URL = (
   import.meta.env.VITE_ANALYZE_API_BASE_URL ??
-  "https://anchored-flow-stack.onrender.com";
+  "https://anchored-flow-stack.onrender.com"
+).trim();
+
 const API_URL = `${API_BASE_URL.replace(/\/+$/, "")}/analyze`;
 const ANALYZE_SECRET = import.meta.env.VITE_ANALYZE_SECRET;
 
