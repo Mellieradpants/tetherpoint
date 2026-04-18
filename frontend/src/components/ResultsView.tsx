@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   MeaningLens,
+  MeaningNodeResult,
   PipelineResponse,
+  StructureNode,
   VerificationNodeResult,
 } from "../types";
 
@@ -19,32 +21,14 @@ function FieldRow({
   value: string | null | undefined;
 }) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "140px 1fr",
-        gap: "12px",
-        padding: "10px 0",
-        borderBottom: "1px solid var(--border)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "0.72rem",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--muted)",
-          fontWeight: 700,
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ color: "var(--fg)" }}>{value || "Not specified"}</div>
+    <div className="field-row">
+      <span className="field-label">{label}</span>
+      <span className="field-value">{value || "Not specified"}</span>
     </div>
   );
 }
 
-function SectionCard({
+function FieldGroup({
   title,
   children,
 }: {
@@ -52,88 +36,10 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      style={{
-        border: "1px solid var(--border)",
-        borderRadius: "14px",
-        background: "var(--card-bg)",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--panel)",
-          fontSize: "0.78rem",
-          fontWeight: 700,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "var(--muted)",
-        }}
-      >
-        {title}
-      </div>
-      <div style={{ padding: "0 16px 8px" }}>{children}</div>
+    <section className="detail-block">
+      <h3>{title}</h3>
+      <div>{children}</div>
     </section>
-  );
-}
-
-function StatusPill({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null | undefined;
-}) {
-  const normalized = (value || "unknown").toLowerCase();
-  const bg =
-    normalized === "executed"
-      ? "rgba(199, 169, 79, 0.16)"
-      : normalized === "skipped"
-        ? "rgba(255,255,255,0.06)"
-        : "rgba(255,123,114,0.16)";
-
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "8px 10px",
-        borderRadius: "999px",
-        background: bg,
-        border: "1px solid var(--border)",
-        fontSize: "0.78rem",
-      }}
-    >
-      <span style={{ color: "var(--muted)", textTransform: "uppercase" }}>
-        {label}
-      </span>
-      <strong style={{ color: "var(--fg)" }}>{value || "unknown"}</strong>
-    </div>
-  );
-}
-
-function Chip({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        padding: "6px 10px",
-        borderRadius: "999px",
-        background: "rgba(199, 169, 79, 0.16)",
-        border: "1px solid var(--border)",
-        fontSize: "0.78rem",
-        color: "var(--fg)",
-      }}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -148,37 +54,186 @@ function normalizeLenses(
   );
 }
 
+function StructurePanel({ node }: { node: StructureNode }) {
+  return (
+    <div className="detail-grid">
+      <FieldGroup title="Actors">
+        <FieldRow label="actor" value={node.actor} />
+        <FieldRow label="who" value={node.who} />
+      </FieldGroup>
+
+      <FieldGroup title="Actions">
+        <FieldRow label="action" value={node.action} />
+        <FieldRow label="what" value={node.what} />
+        <FieldRow label="how" value={node.how} />
+        <FieldRow label="why" value={node.why} />
+      </FieldGroup>
+
+      <FieldGroup title="Timing">
+        <FieldRow label="when" value={node.when} />
+        <FieldRow label="temporal" value={node.temporal} />
+      </FieldGroup>
+
+      <FieldGroup title="Jurisdiction">
+        <FieldRow label="jurisdiction" value={node.jurisdiction} />
+        <FieldRow label="where" value={node.where} />
+      </FieldGroup>
+    </div>
+  );
+}
+
+function TextPanel({ node }: { node: StructureNode }) {
+  return (
+    <div className="detail-grid">
+      <FieldGroup title="Source Text">
+        <pre>{node.source_text}</pre>
+      </FieldGroup>
+
+      <FieldGroup title="Normalized Text">
+        <pre>{node.normalized_text}</pre>
+      </FieldGroup>
+    </div>
+  );
+}
+
+function MeaningPanel({
+  currentMeaning,
+  meaning,
+  selectedNodeId,
+}: {
+  currentMeaning: MeaningNodeResult | undefined;
+  meaning: PipelineResponse["meaning"];
+  selectedNodeId: string | null;
+}) {
+  const normalizedLenses = normalizeLenses(currentMeaning?.lenses);
+  const detected = normalizedLenses.filter((lens) => lens.detected);
+  const notDetected = normalizedLenses.filter((lens) => !lens.detected);
+
+  return (
+    <div className="detail-grid">
+      <FieldGroup title="Meaning Status">
+        <FieldRow label="status" value={meaning.status} />
+        <FieldRow label="message" value={meaning.message} />
+        <FieldRow label="node" value={currentMeaning?.node_id || selectedNodeId} />
+      </FieldGroup>
+
+      {!currentMeaning && (
+        <FieldGroup title="Meaning Output">
+          <div className="muted-inline">
+            No meaning result exists for the selected node.
+          </div>
+        </FieldGroup>
+      )}
+
+      {currentMeaning && (
+        <>
+          <FieldGroup title="Detected Lenses">
+            {detected.length > 0 ? (
+              <div className="tag-row">
+                {detected.map((lens) => (
+                  <span key={lens.lens} className="tag tag-accent">
+                    {lens.lens}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="muted-inline">
+                Meaning result found, but no detected lenses were returned for this node.
+              </div>
+            )}
+          </FieldGroup>
+
+          <FieldGroup title="Not Detected">
+            {notDetected.length > 0 ? (
+              <div className="tag-row">
+                {notDetected.map((lens) => (
+                  <span key={lens.lens} className="tag">
+                    {lens.lens}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="muted-inline">No explicit negative lens results returned.</div>
+            )}
+          </FieldGroup>
+
+          <FieldGroup title="Summary">
+            <div className="field-value">
+              {currentMeaning.summary || "No summary field returned for this node."}
+            </div>
+          </FieldGroup>
+
+          <FieldGroup title="Raw Meaning Result">
+            <pre>{JSON.stringify(currentMeaning, null, 2)}</pre>
+          </FieldGroup>
+        </>
+      )}
+    </div>
+  );
+}
+
+function VerificationPanel({
+  currentVerification,
+}: {
+  currentVerification: VerificationNodeResult | undefined;
+}) {
+  return (
+    <div className="detail-grid">
+      <FieldGroup title="Verification Trace">
+        <FieldRow
+          label="assertion"
+          value={
+            currentVerification
+              ? currentVerification.assertion_detected
+                ? "Detected"
+                : "Not detected"
+              : "No verification result for this node"
+          }
+        />
+        <FieldRow label="type" value={currentVerification?.assertion_type} />
+        <FieldRow
+          label="path"
+          value={
+            currentVerification
+              ? currentVerification.verification_path_available
+                ? "Available"
+                : "Unavailable"
+              : "Not specified"
+          }
+        />
+        <FieldRow label="notes" value={currentVerification?.verification_notes} />
+      </FieldGroup>
+
+      <FieldGroup title="Expected Record Systems">
+        {currentVerification?.expected_record_systems?.length ? (
+          <div className="tag-row">
+            {currentVerification.expected_record_systems.map((system) => (
+              <span key={system} className="tag">
+                {system}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="muted-inline">No record systems listed.</div>
+        )}
+      </FieldGroup>
+    </div>
+  );
+}
+
 export function ResultsView({ data }: ResultsViewProps) {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DetailTab>("structure");
-  const [showMeaningJson, setShowMeaningJson] = useState(false);
-
-  useEffect(() => {
-    const firstNodeId = data.structure.nodes[0]?.node_id ?? null;
-
-    if (!firstNodeId) {
-      setSelectedNodeId(null);
-      return;
-    }
-
-    const nodeStillExists = data.structure.nodes.some(
-      (node) => node.node_id === selectedNodeId
-    );
-
-    if (!selectedNodeId || !nodeStillExists) {
-      setSelectedNodeId(firstNodeId);
-    }
-  }, [data, selectedNodeId]);
-
   const selectedIds = useMemo(
     () => new Set(data.selection.selected_nodes.map((node) => node.node_id)),
     [data.selection.selected_nodes]
   );
 
-  const meaningResults = useMemo(
-    () => data.meaning.node_results ?? [],
-    [data.meaning.node_results]
-  );
+  const initialNodeId =
+    data.selection.selected_nodes[0]?.node_id ??
+    data.structure.nodes[0]?.node_id ??
+    null;
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialNodeId);
+  const [activeTab, setActiveTab] = useState<DetailTab>("structure");
 
   const verificationMap = useMemo(
     () =>
@@ -192,129 +247,65 @@ export function ResultsView({ data }: ResultsViewProps) {
     data.structure.nodes.find((node) => node.node_id === selectedNodeId) ?? null;
 
   const currentMeaning = currentNode
-    ? meaningResults.find((item) => item.node_id === currentNode.node_id)
+    ? data.meaning.node_results.find((node) => node.node_id === currentNode.node_id)
     : undefined;
 
   const currentVerification = currentNode
     ? verificationMap.get(currentNode.node_id)
     : undefined;
 
-  const detectedLenses = normalizeLenses(currentMeaning?.lenses).filter(
-    (lens) => lens.detected
-  );
+  const tabs: Array<{ key: DetailTab; label: string }> = [
+    { key: "structure", label: "Structure" },
+    { key: "text", label: "Text" },
+    { key: "meaning", label: "Meaning" },
+    { key: "verification", label: "Verification" },
+  ];
 
   return (
-    <div style={{ display: "grid", gap: "16px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "16px",
-          alignItems: "center",
-          flexWrap: "wrap",
-          border: "1px solid var(--border)",
-          borderRadius: "16px",
-          padding: "14px 16px",
-          background: "var(--panel)",
-        }}
-      >
-        <div>
-          <div
-            style={{
-              fontSize: "0.72rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              color: "var(--muted)",
-              marginBottom: "6px",
-            }}
-          >
-            Selected Node
-          </div>
-          <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--fg)" }}>
-            {currentNode?.node_id || "No node selected"}
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          <StatusPill label="Meaning" value={data.meaning.status} />
-          <StatusPill label="Origin" value={data.origin.status} />
-          <StatusPill label="Verification" value={data.verification.status} />
-        </div>
+    <div className="pipeline-shell">
+      <div className="pipeline-summary">
+        <span className="stage-status">
+          Meaning: <strong>{data.meaning.status}</strong>
+        </span>
+        <span className="stage-status">
+          Origin: <strong>{data.origin.status}</strong>
+        </span>
+        <span className="stage-status">
+          Verification: <strong>{data.verification.status}</strong>
+        </span>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "320px minmax(0, 1fr)",
-          gap: "16px",
-        }}
-      >
-        <aside
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: "16px",
-            background: "var(--card-bg)",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--panel)",
-              fontSize: "0.78rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--muted)",
-            }}
-          >
-            Node Trace
-          </div>
-
-          <div style={{ padding: "10px", display: "grid", gap: "8px" }}>
-            {data.structure.nodes.map((node) => {
-              const active = node.node_id === selectedNodeId;
-              const selected = selectedIds.has(node.node_id);
+      <div className="pipeline-layout">
+        <aside className="node-panel">
+          <div className="panel-heading">Structure</div>
+          <div className="node-list">
+            {data.structure.nodes.map((node, index) => {
+              const selected = node.node_id === selectedNodeId;
+              const selectedForMeaning = selectedIds.has(node.node_id);
 
               return (
                 <button
                   key={node.node_id}
                   type="button"
+                  className={selected ? "node-item active" : "node-item"}
                   onClick={() => setSelectedNodeId(node.node_id)}
-                  style={{
-                    textAlign: "left",
-                    border: "1px solid var(--border)",
-                    borderRadius: "12px",
-                    background: active ? "var(--panel-2)" : "var(--panel)",
-                    padding: "12px",
-                    cursor: "pointer",
-                    color: "var(--fg)",
-                  }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "8px",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <strong>{node.node_id}</strong>
-                    <span style={{ color: "var(--muted)", fontSize: "0.78rem" }}>
-                      {selected ? "selected" : "excluded"}
+                  <div className="node-item-top">
+                    <span className="node-index">
+                      {String(index + 1).padStart(2, "0")}
                     </span>
+                    <span className="node-id">{node.node_id}</span>
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.84rem",
-                      color: "var(--fg)",
-                      opacity: 0.9,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {node.source_text}
+                  <div className="node-preview">{node.source_text}</div>
+                  <div className="node-meta">
+                    <span className={selectedForMeaning ? "tag tag-accent" : "tag"}>
+                      {selectedForMeaning ? "selected" : "excluded"}
+                    </span>
+                    {node.blocked_flags.map((flag) => (
+                      <span key={flag} className="tag tag-warning">
+                        {flag}
+                      </span>
+                    ))}
                   </div>
                 </button>
               );
@@ -322,196 +313,50 @@ export function ResultsView({ data }: ResultsViewProps) {
           </div>
         </aside>
 
-        <section
-          style={{
-            border: "1px solid var(--border)",
-            borderRadius: "16px",
-            background: "var(--card-bg)",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: "8px",
-              padding: "10px 12px",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--panel)",
-              flexWrap: "wrap",
-            }}
-          >
-            {(["structure", "text", "meaning", "verification"] as DetailTab[]).map(
-              (tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    border: "1px solid var(--border)",
-                    borderRadius: "999px",
-                    padding: "8px 12px",
-                    background:
-                      activeTab === tab ? "var(--accent)" : "transparent",
-                    color: activeTab === tab ? "#16120a" : "var(--fg)",
-                    textTransform: "capitalize",
-                    cursor: "pointer",
-                  }}
-                >
-                  {tab}
-                </button>
-              )
-            )}
-          </div>
+        <section className="detail-panel">
+          {!currentNode ? (
+            <div className="detail-body">
+              <div className="empty-state">No node selected.</div>
+            </div>
+          ) : (
+            <>
+              <div className="detail-header">
+                <div>
+                  <div className="panel-heading">Selected Node</div>
+                  <div className="selected-node-id">{currentNode.node_id}</div>
+                </div>
+                <div className="selected-node-anchor">{currentNode.source_anchor}</div>
+              </div>
 
-          <div style={{ padding: "16px", display: "grid", gap: "16px" }}>
-            {!currentNode && <div>No node selected.</div>}
+              <div className="tab-row">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={activeTab === tab.key ? "tab-button active" : "tab-button"}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-            {currentNode && activeTab === "structure" && (
-              <>
-                <SectionCard title="Actors">
-                  <FieldRow label="actor" value={currentNode.actor} />
-                  <FieldRow label="who" value={currentNode.who} />
-                </SectionCard>
-
-                <SectionCard title="Actions">
-                  <FieldRow label="action" value={currentNode.action} />
-                  <FieldRow label="what" value={currentNode.what} />
-                  <FieldRow label="how" value={currentNode.how} />
-                  <FieldRow label="why" value={currentNode.why} />
-                </SectionCard>
-
-                <SectionCard title="Timing">
-                  <FieldRow label="when" value={currentNode.when} />
-                  <FieldRow label="temporal" value={currentNode.temporal} />
-                </SectionCard>
-
-                <SectionCard title="Jurisdiction">
-                  <FieldRow label="jurisdiction" value={currentNode.jurisdiction} />
-                  <FieldRow label="where" value={currentNode.where} />
-                </SectionCard>
-              </>
-            )}
-
-            {currentNode && activeTab === "text" && (
-              <>
-                <SectionCard title="Source Text">
-                  <pre>{currentNode.source_text}</pre>
-                </SectionCard>
-
-                <SectionCard title="Normalized Text">
-                  <pre>{currentNode.normalized_text}</pre>
-                </SectionCard>
-              </>
-            )}
-
-            {currentNode && activeTab === "meaning" && (
-              <>
-                <SectionCard title="Detected Lenses">
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {currentMeaning ? (
-                      detectedLenses.length > 0 ? (
-                        detectedLenses.map((lens) => (
-                          <Chip key={lens.lens}>{lens.lens}</Chip>
-                        ))
-                      ) : (
-                        <span style={{ color: "var(--muted)" }}>
-                          Meaning result found, but no detected lenses were returned for this node.
-                        </span>
-                      )
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}>
-                        No meaning result exists for the selected node.
-                      </span>
-                    )}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Summary">
-                  <div style={{ paddingTop: "10px", color: "var(--fg)" }}>
-                    {currentMeaning?.summary
-                      ? currentMeaning.summary
-                      : currentNode
-                        ? "No meaning result exists for the selected node."
-                        : "Not specified"}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Meaning Trace">
-                  <FieldRow label="status" value={data.meaning.status} />
-                  <FieldRow label="message" value={data.meaning.message} />
-                  <FieldRow
-                    label="node"
-                    value={currentMeaning?.node_id || "No meaning result bound to selected node"}
+              <div className="detail-body">
+                {activeTab === "structure" && <StructurePanel node={currentNode} />}
+                {activeTab === "text" && <TextPanel node={currentNode} />}
+                {activeTab === "meaning" && (
+                  <MeaningPanel
+                    currentMeaning={currentMeaning}
+                    meaning={data.meaning}
+                    selectedNodeId={selectedNodeId}
                   />
-                  <div style={{ paddingTop: "12px" }}>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setShowMeaningJson((v) => !v)}
-                    >
-                      {showMeaningJson ? "Hide raw JSON" : "Show raw JSON"}
-                    </button>
-                  </div>
-                  {showMeaningJson && (
-                    <pre style={{ marginTop: "12px" }}>
-                      {JSON.stringify(currentMeaning ?? null, null, 2)}
-                    </pre>
-                  )}
-                </SectionCard>
-              </>
-            )}
-
-            {currentNode && activeTab === "verification" && (
-              <>
-                <SectionCard title="Verification Trace">
-                  <FieldRow label="status" value={data.verification.status} />
-                  <FieldRow
-                    label="assertion detected"
-                    value={
-                      currentVerification
-                        ? currentVerification.assertion_detected
-                          ? "Yes"
-                          : "No"
-                        : "Not specified"
-                    }
-                  />
-                  <FieldRow
-                    label="assertion type"
-                    value={currentVerification?.assertion_type}
-                  />
-                  <FieldRow
-                    label="verification path"
-                    value={
-                      currentVerification
-                        ? currentVerification.verification_path_available
-                          ? "Available"
-                          : "Unavailable"
-                        : "Not specified"
-                    }
-                  />
-                  <FieldRow
-                    label="verification notes"
-                    value={currentVerification?.verification_notes}
-                  />
-                </SectionCard>
-
-                <SectionCard title="Expected Record Systems">
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {currentVerification?.expected_record_systems?.length ? (
-                      currentVerification.expected_record_systems.map((system) => (
-                        <Chip key={system}>{system}</Chip>
-                      ))
-                    ) : (
-                      <span style={{ color: "var(--muted)" }}>
-                        No record systems listed
-                      </span>
-                    )}
-                  </div>
-                </SectionCard>
-              </>
-            )}
-          </div>
+                )}
+                {activeTab === "verification" && (
+                  <VerificationPanel currentVerification={currentVerification} />
+                )}
+              </div>
+            </>
+          )}
         </section>
       </div>
     </div>
