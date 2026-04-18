@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   MeaningLens,
   MeaningNodeResult,
@@ -150,11 +150,26 @@ function normalizeLenses(
 }
 
 export function ResultsView({ data }: ResultsViewProps) {
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    data.structure.nodes[0]?.node_id ?? null
-  );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("structure");
   const [showMeaningJson, setShowMeaningJson] = useState(false);
+
+  useEffect(() => {
+    const firstNodeId = data.structure.nodes[0]?.node_id ?? null;
+
+    if (!firstNodeId) {
+      setSelectedNodeId(null);
+      return;
+    }
+
+    const nodeStillExists = data.structure.nodes.some(
+      (node) => node.node_id === selectedNodeId
+    );
+
+    if (!selectedNodeId || !nodeStillExists) {
+      setSelectedNodeId(firstNodeId);
+    }
+  }, [data, selectedNodeId]);
 
   const selectedIds = useMemo(
     () => new Set(data.selection.selected_nodes.map((node) => node.node_id)),
