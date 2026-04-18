@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   MeaningLens,
-  MeaningNodeResult,
   PipelineResponse,
   VerificationNodeResult,
 } from "../types";
@@ -176,11 +175,8 @@ export function ResultsView({ data }: ResultsViewProps) {
     [data.selection.selected_nodes]
   );
 
-  const meaningMap = useMemo(
-    () =>
-      new Map<string, MeaningNodeResult>(
-        data.meaning.node_results.map((node) => [node.node_id, node])
-      ),
+  const meaningResults = useMemo(
+    () => data.meaning.node_results ?? [],
     [data.meaning.node_results]
   );
 
@@ -196,7 +192,7 @@ export function ResultsView({ data }: ResultsViewProps) {
     data.structure.nodes.find((node) => node.node_id === selectedNodeId) ?? null;
 
   const currentMeaning = currentNode
-    ? meaningMap.get(currentNode.node_id)
+    ? meaningResults.find((item) => item.node_id === currentNode.node_id)
     : undefined;
 
   const currentVerification = currentNode
@@ -413,28 +409,41 @@ export function ResultsView({ data }: ResultsViewProps) {
               <>
                 <SectionCard title="Detected Lenses">
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {detectedLenses.length > 0 ? (
-                      detectedLenses.map((lens) => (
-                        <Chip key={lens.lens}>{lens.lens}</Chip>
-                      ))
+                    {currentMeaning ? (
+                      detectedLenses.length > 0 ? (
+                        detectedLenses.map((lens) => (
+                          <Chip key={lens.lens}>{lens.lens}</Chip>
+                        ))
+                      ) : (
+                        <span style={{ color: "var(--muted)" }}>
+                          Meaning result found, but no detected lenses were returned for this node.
+                        </span>
+                      )
                     ) : (
-                      <span style={{ color: "var(--muted)" }}>No lenses detected</span>
+                      <span style={{ color: "var(--muted)" }}>
+                        No meaning result exists for the selected node.
+                      </span>
                     )}
                   </div>
                 </SectionCard>
 
                 <SectionCard title="Summary">
                   <div style={{ paddingTop: "10px", color: "var(--fg)" }}>
-                    {currentMeaning?.summary ||
-                      data.meaning.message ||
-                      "Not specified"}
+                    {currentMeaning?.summary
+                      ? currentMeaning.summary
+                      : currentNode
+                        ? "No meaning result exists for the selected node."
+                        : "Not specified"}
                   </div>
                 </SectionCard>
 
                 <SectionCard title="Meaning Trace">
                   <FieldRow label="status" value={data.meaning.status} />
                   <FieldRow label="message" value={data.meaning.message} />
-                  <FieldRow label="node" value={currentMeaning?.node_id} />
+                  <FieldRow
+                    label="node"
+                    value={currentMeaning?.node_id || "No meaning result bound to selected node"}
+                  />
                   <div style={{ paddingTop: "12px" }}>
                     <button
                       type="button"
