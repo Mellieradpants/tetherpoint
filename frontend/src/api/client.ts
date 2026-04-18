@@ -1,4 +1,5 @@
-import { AnalyzeRequest, PipelineResponse } from "../types";
+
+import type { AnalyzeRequest, PipelineResponse } from "../types";
 
 const API_BASE_URL = (
   import.meta.env.VITE_ANALYZE_API_BASE_URL ??
@@ -7,6 +8,29 @@ const API_BASE_URL = (
 
 const API_URL = `${API_BASE_URL.replace(/\/+$/, "")}/analyze`;
 const ANALYZE_SECRET = import.meta.env.VITE_ANALYZE_SECRET;
+
+async function parseError(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    if (!text) {
+      return `Analysis failed (${response.status})`;
+    }
+
+    try {
+      const json = JSON.parse(text) as { detail?: string; error?: string };
+      return (
+        json.detail ||
+        json.error ||
+        `${response.status} ${response.statusText}` ||
+        `Analysis failed (${response.status})`
+      );
+    } catch {
+      return `${response.status} ${response.statusText}: ${text}`;
+    }
+  } catch {
+    return `Analysis failed (${response.status})`;
+  }
+}
 
 export async function analyzeDocumentRequest(
   request: AnalyzeRequest
@@ -33,9 +57,8 @@ export async function analyzeDocumentRequest(
   }
 
   if (!response.ok) {
-    throw new Error(`Analysis failed (${response.status})`);
+    throw new Error(await parseError(response));
   }
 
-  return response.json();
+  return response.json() as Promise<PipelineResponse>;
 }
-
