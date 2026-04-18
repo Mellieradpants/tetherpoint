@@ -44,15 +44,9 @@ function App() {
 
       {showInput && <InputForm onSubmit={handleSubmit} loading={loading} />}
 
-      {result ? (
-        <div className="results">
-          <ResultsView data={result} />
-        </div>
-      ) : !loading ? (
-        <div>
-          <p>Paste content and run the 7-layer pipeline.</p>
-        </div>
-      ) : null}
+      <div className="results">
+  <ResultsView data={result || ({} as any)} />
+</div>
     </div>
   );
 }
