@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Optional
+from typing import Any
 
 from app.schemas.models import (
     MeaningLens,
@@ -40,16 +40,87 @@ def _build_prompt(node: StructureNode) -> str:
         "4. action_domain_shift - Does the text move an action into a different domain?\n"
         "5. threshold_standard_shift - Does the text raise or lower a threshold or standard?\n"
         "6. obligation_removal - Does the text remove or weaken an obligation?\n\n"
-        "Respond ONLY with a JSON array of objects, one per lens. No extra text."
+        "Respond ONLY with valid JSON. No markdown fences, no prose, no explanation. "
+        "Return a top-level JSON array of 6 objects. Each object must contain exactly: "
+        "lens, detected, detail."
     )
 
 
-def _call_openai(prompt: str, api_key: str) -> Optional[list[dict]]:
-    """Call OpenAI-compatible API. Returns parsed lens results or None on failure."""
+def _extract_candidate_json(raw_text: str) -> str:
+    text = raw_text.strip()
+
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if len(lines) >= 3:
+            text = "\n".join(lines[1:-1]).strip()
+
+    if text.startswith("json\n"):
+        text = text[5:].strip()
+
+    array_start = text.find("[")
+    array_end = text.rfind("]")
+    if array_start != -1 and array_end != -1 and array_end > array_start:
+        return text[array_start : array_end + 1]
+
+    obj_start = text.find("{")
+    obj_end = text.rfind("}")
+    if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+        return text[obj_start : obj_end + 1]
+
+    return text
+
+
+def _normalize_lens_payload(raw_text: str) -> tuple[list[dict[str, Any]] | None, dict[str, str] | None]:
+    candidate = _extract_candidate_json(raw_text)
+
+    try:
+        payload = json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        return None, {
+            "error": "response_parse_failed",
+            "message": f"{type(exc).__name__}: {exc}",
+            "raw_response": raw_text,
+        }
+
+    if isinstance(payload, dict):
+        if isinstance(payload.get("lenses"), list):
+            payload = payload["lenses"]
+        else:
+            return None, {
+                "error": "response_shape_mismatch",
+                "message": "Model returned a JSON object instead of a lens array.",
+                "raw_response": raw_text,
+            }
+
+    if not isinstance(payload, list):
+        return None, {
+            "error": "response_shape_mismatch",
+            "message": "Model response was not a JSON array.",
+            "raw_response": raw_text,
+        }
+
+    normalized: list[dict[str, Any]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            return None, {
+                "error": "response_shape_mismatch",
+                "message": "One or more lens entries were not JSON objects.",
+                "raw_response": raw_text,
+            }
+        normalized.append(item)
+
+    return normalized, None
+
+
+def _call_openai(prompt: str, api_key: str) -> tuple[list[dict[str, Any]] | None, dict[str, str] | None]:
+    """Call OpenAI-compatible API and return normalized lens results or an error object."""
     try:
         import httpx
-    except ImportError:
-        return None
+    except ImportError as exc:
+        return None, {
+            "error": "dependency_import_failed",
+            "message": f"{type(exc).__name__}: {exc}",
+        }
 
     try:
         resp = httpx.post(
@@ -65,12 +136,41 @@ def _call_openai(prompt: str, api_key: str) -> Optional[list[dict]]:
             },
             timeout=30.0,
         )
+    except Exception as exc:
+        return None, {
+            "error": "api_request_failed",
+            "message": f"{type(exc).__name__}: {exc}",
+        }
+
+    raw_body = resp.text
+
+    try:
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        return json.loads(content)
-    except Exception as e:
-        print(f"Meaning API failure: {type(e).__name__}: {e}")
-        return None
+    except Exception as exc:
+        return None, {
+            "error": "api_http_error",
+            "message": f"{type(exc).__name__}: {exc}",
+            "raw_response": raw_body,
+        }
+
+    try:
+        response_json = resp.json()
+        content = response_json["choices"][0]["message"]["content"]
+    except Exception as exc:
+        return None, {
+            "error": "api_response_shape_error",
+            "message": f"{type(exc).__name__}: {exc}",
+            "raw_response": raw_body,
+        }
+
+    if not isinstance(content, str):
+        return None, {
+            "error": "api_response_shape_error",
+            "message": "Model content was not a string.",
+            "raw_response": json.dumps(content, ensure_ascii=False),
+        }
+
+    return _normalize_lens_payload(content)
 
 
 def process_meaning(
@@ -95,28 +195,40 @@ def process_meaning(
 
     for node in selected_nodes:
         prompt = _build_prompt(node)
-        raw = _call_openai(prompt, api_key)
+        raw, error = _call_openai(prompt, api_key)
 
-        if raw is None:
-            lenses = [
-                MeaningLens(lens=l, detected=False, detail="API call failed")
-                for l in LENSES
-            ]
-        else:
-            lenses = []
-            for item in raw:
-                lenses.append(
-                    MeaningLens(
-                        lens=item.get("lens", "unknown"),
-                        detected=bool(item.get("detected", False)),
-                        detail=item.get("detail"),
-                    )
+        if error is not None:
+            node_results.append(
+                MeaningNodeResult(
+                    node_id=node.node_id,
+                    source_text=node.source_text,
+                    status="error",
+                    error=error.get("error"),
+                    message=error.get("message"),
+                    raw_response=error.get("raw_response"),
+                    lenses=[],
                 )
+            )
+            continue
+
+        lenses: list[MeaningLens] = []
+        for item in raw or []:
+            lens_name = item.get("lens", "unknown")
+            if lens_name not in LENSES:
+                continue
+            lenses.append(
+                MeaningLens(
+                    lens=lens_name,
+                    detected=bool(item.get("detected", False)),
+                    detail=item.get("detail"),
+                )
+            )
 
         node_results.append(
             MeaningNodeResult(
                 node_id=node.node_id,
                 source_text=node.source_text,
+                status="executed",
                 lenses=lenses,
             )
         )
