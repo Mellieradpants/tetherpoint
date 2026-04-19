@@ -1,8 +1,4 @@
-This folder is a Vercel bridge only.
+This folder is a legacy bridge from the old Vercel `frontend` root.
 
-Vercel is currently configured with `frontend` as the project root, so this folder exists only to:
-- run the repo-root Vite build
-- expose `/api/analyze` from the repo-root proxy
-
-Do not treat `frontend/` as a second app.
-Use the repo-root `src/` and `api/` folders as the single source of truth.
+The repo-root `src/` and `api/` folders are the real application source of truth.
+If Vercel is configured with the repo root, this folder should be ignored by production builds.
