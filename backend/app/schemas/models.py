@@ -97,33 +97,40 @@ class SelectionResult(BaseModel):
 # Layer 4 — Meaning
 # Purpose: the ONLY AI interpretation layer.
 # Operates only on selected nodes. Isolated behind clear interface.
-# If no model key, returns status only — no fake output.
 # ---------------------------------------------------------------------------
 
-MeaningLensName = Literal[
-    "modality_shift",
-    "scope_change",
-    "actor_power_shift",
-    "action_domain_shift",
-    "threshold_standard_shift",
-    "obligation_removal",
-]
+class MeaningStructured(BaseModel):
+    actors: list[str]
+    actions: list[str]
+    object: Optional[str] = None
+    temporal: Optional[str] = None
+    jurisdiction: Optional[str] = None
 
 
-class MeaningLens(BaseModel):
-    lens: MeaningLensName
-    detected: bool
-    detail: Optional[str] = None
-
-
-class MeaningNodeResult(BaseModel):
+class MeaningSuccessNodeResult(BaseModel):
     node_id: str
-    source_text: str
-    status: Optional[Literal["executed", "error"]] = None
-    error: Optional[str] = None
-    message: Optional[str] = None
-    raw_response: Optional[str] = None
-    lenses: list[MeaningLens]
+    status: Literal["success"]
+    plain_meaning: str
+    structured: MeaningStructured
+
+
+class MeaningErrorNodeResult(BaseModel):
+    node_id: str
+    status: Literal["error"]
+    plain_meaning: None = None
+    structured: None = None
+    reason: str
+
+
+class MeaningEmptyNodeResult(BaseModel):
+    node_id: str
+    status: Literal["empty"]
+    plain_meaning: None = None
+    structured: None = None
+    reason: str
+
+
+MeaningNodeResult = MeaningSuccessNodeResult | MeaningErrorNodeResult | MeaningEmptyNodeResult
 
 
 class MeaningResult(BaseModel):
