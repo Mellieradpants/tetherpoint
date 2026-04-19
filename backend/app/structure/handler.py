@@ -74,6 +74,25 @@ def sse_extract(text: str) -> list[dict[str, str]]:
     return results
 
 
+def _apply_anchor_offset(statements: list[dict[str, str]], base_offset: int) -> list[dict[str, str]]:
+    """Shift local char anchors so they stay global within the extracted document text."""
+    adjusted: list[dict[str, str]] = []
+    for statement in statements:
+        anchor = statement["anchor"]
+        if anchor.startswith("char:"):
+            span = anchor[5:]
+            start_str, end_str = span.split("-", 1)
+            start = int(start_str) + base_offset
+            end = int(end_str) + base_offset
+            adjusted.append({
+                "text": statement["text"],
+                "anchor": f"char:{start}-{end}",
+            })
+        else:
+            adjusted.append(statement)
+    return adjusted
+
+
 # ---------------------------------------------------------------------------
 # CFS – Constraint Filter System
 # ---------------------------------------------------------------------------
@@ -295,6 +314,8 @@ def _extract_statements_html(content: str) -> list[dict[str, str]]:
     Instead of dumping all text and splitting by sentence boundaries (which
     merges titles with first paragraphs), we extract text from each block
     element separately, then apply sentence splitting within each block.
+    Anchors are shifted so they stay document-global across the extracted
+    text stream rather than restarting at char:0 for each block.
     """
     soup = BeautifulSoup(content, "html.parser")
     _BLOCK_TAGS = {
@@ -305,6 +326,7 @@ def _extract_statements_html(content: str) -> list[dict[str, str]]:
 
     results: list[dict[str, str]] = []
     seen_texts: set[str] = set()
+    document_offset = 0
 
     # First pass: collect text from block-level elements
     blocks = soup.find_all(_BLOCK_TAGS)
@@ -315,9 +337,11 @@ def _extract_statements_html(content: str) -> list[dict[str, str]]:
             if not text or text in seen_texts:
                 continue
             seen_texts.add(text)
-            # Apply sentence splitting within this block
-            sentences = sse_extract(text)
+            # Apply sentence splitting within this block, then shift anchors
+            # so they remain globally traceable within the extracted document text.
+            sentences = _apply_anchor_offset(sse_extract(text), document_offset)
             results.extend(sentences)
+            document_offset += len(text) + 1
     else:
         # Fallback: no block elements found, use full text extraction
         text = soup.get_text(separator="\n")
