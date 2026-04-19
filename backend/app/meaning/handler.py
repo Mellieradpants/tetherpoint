@@ -201,64 +201,14 @@ def _call_openai(node: StructureNode, api_key: str):
             },
             json={
                 "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.0,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "meaning_node_result",
-                        "strict": True,
-                        "schema": {
-                            "type": "object",
-                            "oneOf": [
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {"const": "success"},
-                                        "plain_meaning": {"type": "string"},
-                                        "structured": {
-                                            "type": "object",
-                                            "properties": {
-                                                "actors": {
-                                                    "type": "array",
-                                                    "items": {"type": "string"},
-                                                },
-                                                "actions": {
-                                                    "type": "array",
-                                                    "items": {"type": "string"},
-                                                },
-                                                "object": {"type": ["string", "null"]},
-                                                "temporal": {"type": ["string", "null"]},
-                                                "jurisdiction": {"type": ["string", "null"]},
-                                            },
-                                            "required": [
-                                                "actors",
-                                                "actions",
-                                                "object",
-                                                "temporal",
-                                                "jurisdiction",
-                                            ],
-                                            "additionalProperties": False,
-                                        },
-                                    },
-                                    "required": ["status", "plain_meaning", "structured"],
-                                    "additionalProperties": False,
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {"const": "empty"},
-                                        "plain_meaning": {"type": "null"},
-                                        "structured": {"type": "null"},
-                                        "reason": {"type": "string"},
-                                    },
-                                    "required": ["status", "plain_meaning", "structured", "reason"],
-                                    "additionalProperties": False,
-                                },
-                            ],
-                        },
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "Return only one JSON object that matches the user contract exactly.",
                     },
-                },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.0,
             },
             timeout=30.0,
         )
