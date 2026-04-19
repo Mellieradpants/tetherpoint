@@ -256,6 +256,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
           {data.structure.nodes.map((node, index) => {
             const isActive = node.node_id === selectedNodeId;
             const isSelected = selectedIds.has(node.node_id);
+            const nodeMeaning = meaningMap.get(node.node_id);
 
             return (
               <button
@@ -305,6 +306,28 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                         {flag}
                       </span>
                     ))}
+                  </div>
+                  <div className="mt-4 border-t border-border/50 pt-3">
+                    <div className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Meaning
+                    </div>
+                    {!isSelected ? (
+                      <div className="text-sm italic text-muted-foreground">
+                        Excluded. No Meaning data for this node.
+                      </div>
+                    ) : !nodeMeaning ? (
+                      <div className="text-sm italic text-muted-foreground">
+                        No Meaning data for this node.
+                      </div>
+                    ) : nodeMeaning.status === "success" ? (
+                      <div className="text-sm leading-relaxed text-foreground">
+                        {nodeMeaning.plain_meaning}
+                      </div>
+                    ) : (
+                      <div className="text-sm italic text-muted-foreground">
+                        {nodeMeaning.reason || "No Meaning data for this node."}
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>
