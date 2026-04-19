@@ -95,6 +95,8 @@ export interface PipelineResponse {
   errors: Array<{ layer: string; error: string; fatal?: boolean }>;
 }
 
+type DetailTab = "structure" | "text" | "meaning" | "verification" | "origin";
+
 function FieldRow({
   label,
   value,
@@ -157,6 +159,7 @@ function OriginSignalList({ signals }: { signals: OriginSignal[] }) {
 
 export function Workspace({ data }: { data: PipelineResponse }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>("structure");
 
   const selectedIds = useMemo(
     () => new Set(data.selection.selected_nodes.map((node) => node.node_id)),
@@ -245,77 +248,102 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-5 py-6 pb-12">
-        <Section title="Nodes">
-          <div className="space-y-1">
-            {data.structure.nodes.map((node, index) => {
-              const isActive = node.node_id === selectedNodeId;
-              const isSelected = selectedIds.has(node.node_id);
+      <div className="border-b border-border bg-surface/30 px-5 py-4">
+        <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+          Global Node Selection
+        </div>
+        <div className="space-y-1">
+          {data.structure.nodes.map((node, index) => {
+            const isActive = node.node_id === selectedNodeId;
+            const isSelected = selectedIds.has(node.node_id);
 
-              return (
-                <button
-                  key={node.node_id}
-                  type="button"
-                  onClick={() => setSelectedNodeId(node.node_id)}
-                  className={`flex w-full items-start gap-4 rounded-xl border px-4 py-4 text-left transition-colors ${
-                    isActive
-                      ? "border-gold/40 bg-gold/10"
-                      : "border-transparent hover:bg-background"
+            return (
+              <button
+                key={node.node_id}
+                type="button"
+                onClick={() => setSelectedNodeId(node.node_id)}
+                className={`flex w-full items-start gap-4 rounded-xl border px-4 py-4 text-left transition-colors ${
+                  isActive
+                    ? "border-gold/40 bg-gold/10"
+                    : "border-transparent hover:bg-background"
+                }`}
+              >
+                <span
+                  className={`pt-1 text-base font-medium ${
+                    isActive ? "text-gold" : "text-muted-foreground"
                   }`}
                 >
-                  <span
-                    className={`pt-1 text-base font-medium ${
-                      isActive ? "text-gold" : "text-muted-foreground"
-                    }`}
-                  >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="line-clamp-3 text-lg font-semibold leading-snug text-foreground">
-                      {node.source_text}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span
-                        className={`rounded px-2.5 py-1 text-[11px] font-semibold ${
-                          isSelected
-                            ? "bg-gold/15 text-gold"
-                            : "bg-secondary text-muted-foreground"
-                        }`}
-                      >
-                        {isSelected ? "SELECTED" : "EXCLUDED"}
-                      </span>
-                      {node.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {node.blocked_flags.map((flag) => (
-                        <span
-                          key={flag}
-                          className="rounded bg-destructive/15 px-2.5 py-1 text-[11px] text-destructive"
-                        >
-                          {flag}
-                        </span>
-                      ))}
-                    </div>
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="line-clamp-3 text-lg font-semibold leading-snug text-foreground">
+                    {node.source_text}
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </Section>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded px-2.5 py-1 text-[11px] font-semibold ${
+                        isSelected
+                          ? "bg-gold/15 text-gold"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {isSelected ? "SELECTED" : "EXCLUDED"}
+                    </span>
+                    {node.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {node.blocked_flags.map((flag) => (
+                      <span
+                        key={flag}
+                        className="rounded bg-destructive/15 px-2.5 py-1 text-[11px] text-destructive"
+                      >
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
+      <div className="flex border-b border-border bg-surface/30">
+        {(["structure", "text", "meaning", "verification", "origin"] as DetailTab[]).map(
+          (tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`relative flex-1 px-2 py-3 text-sm font-medium capitalize transition-colors md:flex-none md:px-5 ${
+                activeTab === tab
+                  ? "text-gold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-3 right-3 h-0.5 rounded-t bg-gold" />
+              )}
+            </button>
+          )
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-6 pb-12">
         <div className="text-sm font-mono text-muted-foreground mb-5">
-          {currentNode?.node_id || "No node selected"}
+          {activeTab === "origin" ? "document" : currentNode?.node_id || "No node selected"}
         </div>
 
-        {!currentNode ? (
-          <EmptyState message="No data for this node." />
-        ) : (
-          <>
+        {activeTab === "structure" && (
+          !currentNode ? (
+            <EmptyState message="No data for this node." />
+          ) : (
             <Section title="Structure">
               <FieldRow label="anchor" value={currentNode.source_anchor} />
               <FieldRow label="actor" value={currentNode.actor} />
@@ -349,73 +377,101 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                 </pre>
               </div>
             </Section>
+          )
+        )}
 
+        {activeTab === "text" && (
+          !currentNode ? (
+            <EmptyState message="No data for this node." />
+          ) : (
+            <>
+              <Section title="Source Text">
+                <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground">
+                  {currentNode.source_text}
+                </pre>
+              </Section>
+
+              <Section title="Normalized Text">
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                  {currentNode.normalized_text}
+                </pre>
+              </Section>
+            </>
+          )
+        )}
+
+        {activeTab === "meaning" && (
+          !currentNode ? (
+            <EmptyState message="No data for this node." />
+          ) : !isSelectedNode ? (
+            <EmptyState message="This node is excluded. No Meaning data for this node." />
+          ) : !currentMeaning ? (
+            <EmptyState message="No Meaning data for this node." />
+          ) : currentMeaning.status === "success" ? (
             <Section title="Meaning">
-              {!isSelectedNode ? (
-                <EmptyState message="This node is excluded. No Meaning data for this node." />
-              ) : !currentMeaning ? (
-                <EmptyState message="No Meaning data for this node." />
-              ) : currentMeaning.status === "success" ? (
-                <>
-                  <div className="mb-4">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                      Plain Meaning
-                    </div>
-                    <div className="text-sm leading-relaxed text-foreground">
-                      {currentMeaning.plain_meaning}
-                    </div>
-                  </div>
+              <div className="mb-4">
+                <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Plain Meaning
+                </div>
+                <div className="text-sm leading-relaxed text-foreground">
+                  {currentMeaning.plain_meaning}
+                </div>
+              </div>
 
-                  <FieldRow
-                    label="actors"
-                    value={
-                      currentMeaning.structured && currentMeaning.structured.actors.length > 0
-                        ? currentMeaning.structured.actors.join(", ")
-                        : null
-                    }
-                  />
-                  <FieldRow
-                    label="actions"
-                    value={
-                      currentMeaning.structured && currentMeaning.structured.actions.length > 0
-                        ? currentMeaning.structured.actions.join(", ")
-                        : null
-                    }
-                  />
-                  <FieldRow label="object" value={currentMeaning.structured?.object ?? null} />
-                  <FieldRow
-                    label="temporal"
-                    value={currentMeaning.structured?.temporal ?? null}
-                  />
-                  <FieldRow
-                    label="jurisdiction"
-                    value={currentMeaning.structured?.jurisdiction ?? null}
-                  />
+              <FieldRow
+                label="actors"
+                value={
+                  currentMeaning.structured && currentMeaning.structured.actors.length > 0
+                    ? currentMeaning.structured.actors.join(", ")
+                    : null
+                }
+              />
+              <FieldRow
+                label="actions"
+                value={
+                  currentMeaning.structured && currentMeaning.structured.actions.length > 0
+                    ? currentMeaning.structured.actions.join(", ")
+                    : null
+                }
+              />
+              <FieldRow label="object" value={currentMeaning.structured?.object ?? null} />
+              <FieldRow
+                label="temporal"
+                value={currentMeaning.structured?.temporal ?? null}
+              />
+              <FieldRow
+                label="jurisdiction"
+                value={currentMeaning.structured?.jurisdiction ?? null}
+              />
 
-                  <div className="mt-4">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                      Raw Meaning Result
-                    </div>
-                    <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-                      {JSON.stringify(currentMeaning, null, 2)}
-                    </pre>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <EmptyState message={currentMeaning.reason || "No Meaning data for this node."} />
-                  <div className="mt-4">
-                    <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                      Raw Meaning Result
-                    </div>
-                    <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-                      {JSON.stringify(currentMeaning, null, 2)}
-                    </pre>
-                  </div>
-                </>
-              )}
+              <div className="mt-4">
+                <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Raw Meaning Result
+                </div>
+                <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
+                  {JSON.stringify(currentMeaning, null, 2)}
+                </pre>
+              </div>
             </Section>
+          ) : (
+            <Section title="Meaning">
+              <EmptyState message={currentMeaning.reason || "No Meaning data for this node."} />
+              <div className="mt-4">
+                <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Raw Meaning Result
+                </div>
+                <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
+                  {JSON.stringify(currentMeaning, null, 2)}
+                </pre>
+              </div>
+            </Section>
+          )
+        )}
 
+        {activeTab === "verification" && (
+          !currentNode ? (
+            <EmptyState message="No data for this node." />
+          ) : (
             <Section title="Verification">
               <div className="mb-4 flex flex-wrap gap-2">
                 <span
@@ -474,33 +530,33 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                 </>
               )}
             </Section>
+          )
+        )}
 
-            <Section title="Document Origin">
-              <div className="text-sm font-mono text-muted-foreground mb-4">document</div>
-
-              <Section title="Origin Identity Signals">
-                <OriginSignalList signals={data.origin.origin_identity_signals} />
-              </Section>
-
-              <Section title="Origin Metadata Signals">
-                <OriginSignalList signals={data.origin.origin_metadata_signals} />
-              </Section>
-
-              <Section title="Distribution Signals">
-                <OriginSignalList signals={data.origin.distribution_signals} />
-              </Section>
-
-              <Section title="Evidence Trace">
-                {data.origin.evidence_trace.length > 0 ? (
-                  <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-                    {JSON.stringify(data.origin.evidence_trace, null, 2)}
-                  </pre>
-                ) : (
-                  <EmptyState message="No evidence trace returned." />
-                )}
-              </Section>
+        {activeTab === "origin" && (
+          <Section title="Document Origin">
+            <Section title="Origin Identity Signals">
+              <OriginSignalList signals={data.origin.origin_identity_signals} />
             </Section>
-          </>
+
+            <Section title="Origin Metadata Signals">
+              <OriginSignalList signals={data.origin.origin_metadata_signals} />
+            </Section>
+
+            <Section title="Distribution Signals">
+              <OriginSignalList signals={data.origin.distribution_signals} />
+            </Section>
+
+            <Section title="Evidence Trace">
+              {data.origin.evidence_trace.length > 0 ? (
+                <pre className="overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
+                  {JSON.stringify(data.origin.evidence_trace, null, 2)}
+                </pre>
+              ) : (
+                <EmptyState message="No evidence trace returned." />
+              )}
+            </Section>
+          </Section>
         )}
       </div>
     </div>
