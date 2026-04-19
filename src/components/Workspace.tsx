@@ -453,17 +453,6 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                         />
                       </div>
                     )}
-                    <div className="mt-4 rounded-xl border border-border/60 bg-background/60 p-3">
-                      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
-                        Structure Fields
-                      </div>
-                      <FieldRow label="anchor" value={node.source_anchor} />
-                      <FieldRow label="actor" value={node.actor} />
-                      <FieldRow label="action" value={node.action} />
-                      <FieldRow label="condition" value={node.condition} />
-                      <FieldRow label="temporal" value={node.temporal} />
-                      <FieldRow label="jurisdiction" value={node.jurisdiction} />
-                    </div>
                   </div>
                 </button>
               );
