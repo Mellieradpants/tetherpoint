@@ -104,6 +104,53 @@ function normalizeLenses(lenses: Array<MeaningLens | string> | undefined): Meani
   );
 }
 
+function titleizeLensName(lensName: string): string {
+  return lensName
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function derivePlainMeaning(currentMeaning: MeaningNodeResult | undefined): string {
+  if (!currentMeaning) {
+    return "No Meaning data for this node.";
+  }
+
+  if (currentMeaning.status === "error") {
+    return (
+      currentMeaning.message ||
+      currentMeaning.error ||
+      "Meaning execution failed for this node."
+    );
+  }
+
+  const detectedLenses = normalizeLenses(currentMeaning.lenses).filter(
+    (lens) => lens.detected
+  );
+
+  if (detectedLenses.length === 0) {
+    return currentMeaning.message || "No plain meaning was detected for this node.";
+  }
+
+  const detailedSummaries = detectedLenses
+    .map((lens) => {
+      const detail = lens.detail?.trim();
+      if (detail) {
+        return detail;
+      }
+      return `${titleizeLensName(lens.lens)} detected.`;
+    })
+    .filter(Boolean);
+
+  if (detailedSummaries.length > 0) {
+    return detailedSummaries.join(" ");
+  }
+
+  return `Meaning detected across ${detectedLenses.length} lens${
+    detectedLenses.length === 1 ? "" : "es"
+  } for this node.`;
+}
+
 function FieldRow({
   label,
   value,
@@ -194,6 +241,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   const normalizedLenses = normalizeLenses(currentMeaning?.lenses);
   const detectedLenses = normalizedLenses.filter((lens) => lens.detected);
   const undetectedLenses = normalizedLenses.filter((lens) => !lens.detected);
+  const plainMeaning = derivePlainMeaning(currentMeaning);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -366,7 +414,17 @@ export function Workspace({ data }: { data: PipelineResponse }) {
               <EmptyState message="No Meaning data for this node." />
             ) : (
               <>
-                <Section title="Detected Lenses">
+                <Section title="Plain Meaning">
+                  <div className="text-sm leading-relaxed text-foreground">{plainMeaning}</div>
+                </Section>
+
+                <Section title="Meaning Structure">
+                  <FieldRow label="status" value={currentMeaning.status} />
+                  <FieldRow label="error" value={currentMeaning.error} />
+                  <FieldRow label="message" value={currentMeaning.message} />
+                </Section>
+
+                <Section title="Detected Meaning Fields">
                   {detectedLenses.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {detectedLenses.map((lens) => (
@@ -374,16 +432,16 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                           key={lens.lens}
                           className="rounded bg-gold/15 px-3 py-2 text-sm font-medium text-gold"
                         >
-                          {lens.lens}
+                          {titleizeLensName(lens.lens)}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <EmptyState message="No detected lenses for this node." />
+                    <EmptyState message="No detected meaning fields for this node." />
                   )}
                 </Section>
 
-                <Section title="Not Detected">
+                <Section title="Undetected Meaning Fields">
                   {undetectedLenses.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {undetectedLenses.map((lens) => (
@@ -391,19 +449,13 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                           key={lens.lens}
                           className="rounded bg-secondary px-3 py-2 text-sm font-medium text-muted-foreground"
                         >
-                          {lens.lens}
+                          {titleizeLensName(lens.lens)}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <EmptyState message="No undetected lens list returned for this node." />
+                    <EmptyState message="No undetected meaning fields returned for this node." />
                   )}
-                </Section>
-
-                <Section title="Meaning Status">
-                  <FieldRow label="status" value={currentMeaning.status} />
-                  <FieldRow label="error" value={currentMeaning.error} />
-                  <FieldRow label="message" value={currentMeaning.message} />
                 </Section>
 
                 <Section title="Raw Meaning Result">
