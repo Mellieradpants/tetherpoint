@@ -26,11 +26,11 @@ Frontend (UI)
 
 1. Backend models
 2. `backend/openapi.yaml`
-3. Generated frontend API types (`frontend/src/types/api.generated.ts`)
+3. Generated frontend API types (`src/types/api.generated.ts`)
 
 ## Current Status
 
 - Production pipeline verified end-to-end
 - Security path locked
 - OpenAPI aligned
-- CI spec validation present    
+- CI spec validation present
