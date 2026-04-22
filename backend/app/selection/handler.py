@@ -18,12 +18,27 @@ def process_selection(structure: StructureResult) -> SelectionResult:
         if not node.source_text or not node.source_text.strip():
             reasons.append("empty source_text")
 
-        # Rule 2: must not be blocked by CFS
+        # Rule 2: invalid nodes should not continue downstream
+        if node.validation_status == "invalid":
+            reasons.append("hierarchy validation failed")
+
+        # Rule 3: must not be blocked by CFS
         if node.blocked_flags:
             reasons.append(f"blocked by CFS: {', '.join(node.blocked_flags)}")
 
-        # Rule 3: must have at least one structured signal
+        # Rule 4: explicit hierarchy roles count as structure signals
+        has_hierarchy_signal = node.role in {
+            "PRIMARY_RULE",
+            "EVIDENCE",
+            "CONDITION",
+            "EXCEPTION",
+            "CONSEQUENCE",
+            "DEFINITION",
+        }
+
+        # Rule 5: must have at least one structured signal
         has_signal = any([
+            has_hierarchy_signal,
             node.actor,
             node.action,
             node.condition,
@@ -40,7 +55,7 @@ def process_selection(structure: StructureResult) -> SelectionResult:
 
         if reasons:
             excluded.append(node)
-            log.append(f"{node.node_id}: EXCLUDED — {'; '.join(reasons)}")
+            log.append(f"{node.node_id}: EXCLUDED - {'; '.join(reasons)}")
         else:
             selected.append(node)
             log.append(f"{node.node_id}: SELECTED")
