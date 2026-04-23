@@ -41,51 +41,52 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
-  let body: any;
-
   try {
-    body = readAnalyzeBody(req);
-  } catch (error) {
-    res.status(400).json({
-      message:
-        error instanceof Error ? error.message : "Invalid JSON request body.",
+    let body: any;
+
+    try {
+      body = readAnalyzeBody(req);
+    } catch (error) {
+      res.status(400).json({
+        message:
+          error instanceof Error ? error.message : "Invalid JSON request body.",
+      });
+      return;
+    }
+
+    const content = typeof body.content === "string" ? body.content : "";
+    const contentType =
+      typeof body.content_type === "string" ? body.content_type : "";
+    const options = body.options ?? {
+      run_meaning: false,
+      run_origin: true,
+      run_verification: true,
+    };
+
+    const clientIpHeader = req.headers["x-forwarded-for"];
+    const clientIp = Array.isArray(clientIpHeader)
+      ? clientIpHeader[0]
+      : clientIpHeader?.split(",")[0].trim() ?? "unknown";
+
+    const security = enforceAnalyzeSecurity({
+      content,
+      content_type: contentType,
+      options,
+      clientIp,
     });
-    return;
-  }
 
-  const content = typeof body.content === "string" ? body.content : "";
-  const contentType = typeof body.content_type === "string" ? body.content_type : "";
-  const options = body.options ?? {
-    run_meaning: false,
-    run_origin: true,
-    run_verification: true,
-  };
+    if (security.reject) {
+      res.status(security.reject.status).json({ message: security.reject.message });
+      return;
+    }
 
-  const clientIpHeader = req.headers["x-forwarded-for"];
-  const clientIp = Array.isArray(clientIpHeader)
-    ? clientIpHeader[0]
-    : clientIpHeader?.split(",")[0].trim() ?? "unknown";
+    const { apiUrl, analyzeSecret } = getBackendConfig();
 
-  const security = enforceAnalyzeSecurity({
-    content,
-    content_type: contentType,
-    options,
-    clientIp,
-  });
+    if (!analyzeSecret) {
+      res.status(500).json({ message: "ANALYZE_SECRET is not configured on the server." });
+      return;
+    }
 
-  if (security.reject) {
-    res.status(security.reject.status).json({ message: security.reject.message });
-    return;
-  }
-
-  const { apiUrl, analyzeSecret } = getBackendConfig();
-
-  if (!analyzeSecret) {
-    res.status(500).json({ message: "ANALYZE_SECRET is not configured on the server." });
-    return;
-  }
-
-  try {
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -132,7 +133,9 @@ export default async function handler(req: any, res: any) {
     }
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Analyze proxy request failed.";
+      error instanceof Error
+        ? error.message
+        : "Analyze proxy request failed before backend completion.";
     res.status(502).json({ message });
   }
 }
