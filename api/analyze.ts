@@ -1,87 +1,4 @@
-const MAX_CONTENT_LENGTH = 500_000;
-const VALID_CONTENT_TYPES = new Set(["text", "html", "xml", "json"]);
-const GENERAL_LIMIT = 30;
-const MEANING_LIMIT = 5;
-const WINDOW_MS = 60_000;
-
-const generalBuckets = new Map<string, number[]>();
-const meaningBuckets = new Map<string, number[]>();
-
-function prune(timestamps: number[], now: number): number[] {
-  const cutoff = now - WINDOW_MS;
-  return timestamps.filter((t) => t > cutoff);
-}
-
-function checkRateLimit(clientIp: string, wantsMeaning: boolean): string | null {
-  const now = Date.now();
-
-  let general = prune(generalBuckets.get(clientIp) ?? [], now);
-  if (general.length >= GENERAL_LIMIT) {
-    return `Rate limit exceeded: ${GENERAL_LIMIT} requests per ${WINDOW_MS / 1000}s`;
-  }
-  general.push(now);
-  generalBuckets.set(clientIp, general);
-
-  if (wantsMeaning) {
-    let meaning = prune(meaningBuckets.get(clientIp) ?? [], now);
-    if (meaning.length >= MEANING_LIMIT) {
-      return `Meaning rate limit exceeded: ${MEANING_LIMIT} requests per ${WINDOW_MS / 1000}s`;
-    }
-    meaning.push(now);
-    meaningBuckets.set(clientIp, meaning);
-  }
-
-  return null;
-}
-
-function enforceAnalyzeSecurity(input: {
-  content: string;
-  content_type: string;
-  options: { run_meaning: boolean; run_origin: boolean; run_verification: boolean };
-  clientIp?: string;
-}) {
-  const clientIp = input.clientIp ?? "unknown";
-  const contentLen = input.content.length;
-
-  if (!input.content || !input.content.trim()) {
-    return { reject: { status: 400, message: "content must not be empty" }, meaningAllowed: false };
-  }
-
-  if (contentLen > MAX_CONTENT_LENGTH) {
-    return {
-      reject: {
-        status: 413,
-        message: `content too large: ${contentLen} bytes (max ${MAX_CONTENT_LENGTH})`,
-      },
-      meaningAllowed: false,
-    };
-  }
-
-  if (!VALID_CONTENT_TYPES.has(input.content_type)) {
-    return {
-      reject: {
-        status: 400,
-        message: `Invalid content_type: must be one of ${[...VALID_CONTENT_TYPES].join(", ")}`,
-      },
-      meaningAllowed: false,
-    };
-  }
-
-  let meaningAllowed = false;
-  if (input.options.run_meaning) {
-    const serverSecret = process.env.ANALYZE_SECRET ?? "";
-    if (serverSecret) {
-      meaningAllowed = true;
-    }
-  }
-
-  const rateResult = checkRateLimit(clientIp, input.options.run_meaning && meaningAllowed);
-  if (rateResult) {
-    return { reject: { status: 429, message: rateResult }, meaningAllowed: false };
-  }
-
-  return { meaningAllowed };
-}
+import { enforceAnalyzeSecurity } from "../src/lib/analyze-security.server";
 
 function getBackendConfig() {
   const apiBaseUrl =
@@ -97,13 +14,45 @@ function getBackendConfig() {
   };
 }
 
+function readAnalyzeBody(req: any) {
+  try {
+    const parsedBody = req.body;
+
+    if (typeof parsedBody === "string") {
+      const trimmed = parsedBody.trim();
+      return trimmed ? JSON.parse(trimmed) : {};
+    }
+
+    if (parsedBody && typeof parsedBody === "object") {
+      return parsedBody;
+    }
+
+    return {};
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : "Invalid JSON request body."
+    );
+  }
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.status(405).json({ message: "Method not allowed" });
     return;
   }
 
-  const body = req.body ?? {};
+  let body: any;
+
+  try {
+    body = readAnalyzeBody(req);
+  } catch (error) {
+    res.status(400).json({
+      message:
+        error instanceof Error ? error.message : "Invalid JSON request body.",
+    });
+    return;
+  }
+
   const content = typeof body.content === "string" ? body.content : "";
   const contentType = typeof body.content_type === "string" ? body.content_type : "";
   const options = body.options ?? {
