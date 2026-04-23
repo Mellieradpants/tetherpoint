@@ -1,17 +1,14 @@
 """Tests that validate the OpenAPI spec against the live backend models.
 
-These tests ensure the spec stays aligned with Pydantic models —
+These tests ensure the spec stays aligned with Pydantic models -
 any future drift will surface as a clear test failure.
 """
 
 import yaml
-import os
 from pathlib import Path
-from typing import get_args, get_origin
 
 import pytest
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
 
 from app.schemas.models import (
     AnalyzeOptions,
@@ -20,6 +17,8 @@ from app.schemas.models import (
     InputResult,
     StructureNode,
     StructureResult,
+    StructureValidationIssue,
+    StructureValidationReport,
     SelectionResult,
     MeaningLens,
     MeaningNodeResult,
@@ -90,17 +89,6 @@ def _get_spec_schema(spec, name: str) -> dict:
     return schemas[name]
 
 
-def _resolve_ref(spec, ref_or_schema: dict) -> dict:
-    """Resolve a $ref if present."""
-    if "$ref" in ref_or_schema:
-        path = ref_or_schema["$ref"].lstrip("#/").split("/")
-        result = spec
-        for p in path:
-            result = result[p]
-        return result
-    return ref_or_schema
-
-
 def _get_model_field_names(model: type[BaseModel]) -> set[str]:
     """Get all field names from a Pydantic model."""
     return set(model.model_fields.keys())
@@ -112,13 +100,14 @@ def _get_spec_field_names(spec, schema_name: str) -> set[str]:
     return set(schema.get("properties", {}).keys())
 
 
-# Mapping of spec schema name → Pydantic model
 SCHEMA_MODEL_MAP = {
     "AnalyzeOptions": AnalyzeOptions,
     "AnalyzeRequest": AnalyzeRequest,
     "InputResult": InputResult,
     "StructureNode": StructureNode,
     "StructureResult": StructureResult,
+    "StructureValidationIssue": StructureValidationIssue,
+    "StructureValidationReport": StructureValidationReport,
     "SelectionResult": SelectionResult,
     "MeaningLens": MeaningLens,
     "MeaningNodeResult": MeaningNodeResult,
@@ -148,14 +137,11 @@ def test_spec_fields_match_model(spec, schema_name, model):
     if extra_in_model:
         errors.append(f"Fields in model but NOT in spec: {extra_in_model}")
 
-    assert not errors, (
-        f"Schema mismatch for {schema_name}:\n" + "\n".join(errors)
-    )
+    assert not errors, f"Schema mismatch for {schema_name}:\n" + "\n".join(errors)
 
 
 def test_spec_required_fields_match_model(spec):
     """Required fields in spec must align with non-optional model fields."""
-    # Check a key subset — PipelineResponse
     schema = _get_spec_schema(spec, "PipelineResponse")
     spec_required = set(schema.get("required", []))
     model_required = set()
@@ -179,11 +165,7 @@ def test_content_type_enum_matches(spec):
     )
 
 
-# --- 3. No stale fields ---
-
 def test_no_translated_text_in_spec(spec):
-    """translated_text must not appear anywhere — it was removed."""
+    """translated_text must not appear anywhere - it was removed."""
     spec_str = yaml.dump(spec)
-    assert "translated_text" not in spec_str, (
-        "Stale field 'translated_text' found in OpenAPI spec"
-    )
+    assert "translated_text" not in spec_str, "Stale field 'translated_text' found in OpenAPI spec"
