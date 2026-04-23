@@ -2,6 +2,21 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 interface StructureNode {
   node_id: string;
+  section_id: string;
+  parent_id: string | null;
+  role:
+    | "PRIMARY_RULE"
+    | "EVIDENCE"
+    | "CONDITION"
+    | "EXCEPTION"
+    | "CONSEQUENCE"
+    | "DEFINITION"
+    | "BOILERPLATE";
+  depth: number;
+  source_span_start: number | null;
+  source_span_end: number | null;
+  validation_status: "valid" | "repaired" | "invalid";
+  validation_errors: string[];
   source_anchor: string;
   source_text: string;
   normalized_text: string;
@@ -22,18 +37,20 @@ interface StructureNode {
   how: string | null;
 }
 
+interface MeaningLens {
+  lens: string;
+  detected: boolean;
+  detail?: string | null;
+}
+
 interface MeaningNodeResult {
   node_id: string;
-  status: "success" | "error" | "empty";
-  plain_meaning: string | null;
-  structured: {
-    actors: string[];
-    actions: string[];
-    object: string | null;
-    temporal: string | null;
-    jurisdiction: string | null;
-  } | null;
-  reason?: string | null;
+  source_text: string;
+  status: string | null;
+  error?: string | null;
+  message?: string | null;
+  raw_response?: string | null;
+  lenses: MeaningLens[];
 }
 
 interface MeaningData {
@@ -65,6 +82,13 @@ interface OriginData {
   evidence_trace: unknown[];
 }
 
+interface StructureValidationIssue {
+  section_id: string;
+  issue_type: string;
+  message: string;
+  node_id?: string | null;
+}
+
 export interface PipelineResponse {
   input: {
     raw_content: string;
@@ -73,7 +97,16 @@ export interface PipelineResponse {
     parse_status: string;
     parse_errors: string[];
   };
-  structure: { nodes: StructureNode[]; node_count: number };
+  structure: {
+    nodes: StructureNode[];
+    node_count: number;
+    section_count: number;
+    validation_report: {
+      status: "clean" | "repaired" | "failed";
+      issues: StructureValidationIssue[];
+      repaired_sections: string[];
+    };
+  };
   selection: {
     selected_nodes: StructureNode[];
     excluded_nodes: StructureNode[];
@@ -103,7 +136,7 @@ function FieldRow({
   value: string | null | undefined;
 }) {
   return (
-    <div className="flex items-start gap-3 py-2 border-b border-border/50 last:border-0">
+    <div className="flex items-start gap-3 border-b border-border/50 py-2 last:border-0">
       <span className="w-28 shrink-0 text-[11px] uppercase tracking-widest text-muted-foreground">
         {label}
       </span>
@@ -170,46 +203,40 @@ function MeaningSummary({
     return <EmptyState message="No Meaning data for this node." />;
   }
 
-  if (meaning.status === "success") {
+  if (meaning.status === "executed") {
+    if (meaning.lenses.length === 0) {
+      return <EmptyState message="No meaning lenses were returned for this node." />;
+    }
+
     return (
       <div className="space-y-2">
-        <div className="text-sm leading-relaxed text-foreground">
-          {meaning.plain_meaning}
-        </div>
-        {meaning.structured && (
-          <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-            {meaning.structured.actors.length > 0 && (
-              <span className="rounded bg-secondary px-2.5 py-1">
-                Actors: {meaning.structured.actors.join(", ")}
-              </span>
-            )}
-            {meaning.structured.actions.length > 0 && (
-              <span className="rounded bg-secondary px-2.5 py-1">
-                Actions: {meaning.structured.actions.join(", ")}
-              </span>
-            )}
-            {meaning.structured.object && (
-              <span className="rounded bg-secondary px-2.5 py-1">
-                Object: {meaning.structured.object}
-              </span>
-            )}
-            {meaning.structured.temporal && (
-              <span className="rounded bg-secondary px-2.5 py-1">
-                Temporal: {meaning.structured.temporal}
-              </span>
-            )}
-            {meaning.structured.jurisdiction && (
-              <span className="rounded bg-secondary px-2.5 py-1">
-                Jurisdiction: {meaning.structured.jurisdiction}
-              </span>
+        {meaning.lenses.map((lens) => (
+          <div
+            key={`${meaning.node_id}-${lens.lens}`}
+            className="rounded border border-border/50 bg-background/40 p-2"
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-muted">
+              {lens.lens}
+            </div>
+            <div className="mt-1 text-sm text-foreground">
+              {lens.detected ? "Detected" : "Not detected"}
+            </div>
+            {lens.detail && (
+              <div className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {lens.detail}
+              </div>
             )}
           </div>
-        )}
+        ))}
       </div>
     );
   }
 
-  return <EmptyState message={meaning.reason || "Meaning unavailable for this node."} />;
+  return (
+    <EmptyState
+      message={meaning.message || meaning.error || "Meaning unavailable for this node."}
+    />
+  );
 }
 
 export function Workspace({ data }: { data: PipelineResponse }) {
@@ -266,6 +293,11 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </span>
         <span className="text-border">·</span>
         <span>
+          <span className="font-medium text-foreground">{data.structure.section_count}</span>{" "}
+          sections
+        </span>
+        <span className="text-border">·</span>
+        <span>
           <span className="font-medium text-foreground">
             {data.selection.selected_nodes.length}
           </span>{" "}
@@ -280,8 +312,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </span>
         <div className="hidden flex-1 md:block" />
         <span>
-          Meaning:{" "}
-          <span className="font-medium text-primary">{data.meaning.status}</span>
+          Meaning: <span className="font-medium text-primary">{data.meaning.status}</span>
         </span>
         <span>
           Origin: <span className="font-medium text-foreground">{data.origin.status}</span>
@@ -289,6 +320,12 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         <span>
           Verification:{" "}
           <span className="font-medium text-foreground">{data.verification.status}</span>
+        </span>
+        <span>
+          Validation:{" "}
+          <span className="font-medium text-foreground">
+            {data.structure.validation_report.status}
+          </span>
         </span>
       </div>
 
@@ -305,26 +342,24 @@ export function Workspace({ data }: { data: PipelineResponse }) {
         </div>
       )}
 
-      <div className="flex border-b border-border bg-surface/30">
-        {(["meaning", "verification", "origin"] as DetailTab[]).map(
-          (tab) => (
+      <div className="border-b border-border bg-surface/30 px-4 py-3">
+        <div className="flex flex-wrap gap-2">
+          {(["meaning", "verification", "origin"] as DetailTab[]).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`relative flex-1 px-2 py-3 text-sm font-medium capitalize transition-colors md:flex-none md:px-5 ${
+              aria-pressed={activeTab === tab}
+              className={`rounded-full border px-3.5 py-2 text-sm font-medium capitalize transition-colors ${
                 activeTab === tab
-                  ? "text-gold"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "border-gold/30 bg-gold/10 text-foreground"
+                  : "border-border/60 bg-background/20 text-muted-foreground hover:border-border hover:text-foreground"
               }`}
             >
               {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-3 right-3 h-0.5 rounded-t bg-gold" />
-              )}
             </button>
-          )
-        )}
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -367,6 +402,20 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                       >
                         {isSelected ? "SELECTED" : "EXCLUDED"}
                       </span>
+                      <span className="rounded bg-secondary px-2.5 py-1 text-[11px] text-foreground">
+                        {node.role}
+                      </span>
+                      <span className="rounded bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
+                        depth {node.depth}
+                      </span>
+                      {node.parent_id && (
+                        <span className="rounded bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
+                          parent {node.parent_id}
+                        </span>
+                      )}
+                      <span className="rounded bg-secondary px-2.5 py-1 text-[11px] text-muted-foreground">
+                        {node.validation_status}
+                      </span>
                       {node.tags.map((tag) => (
                         <span
                           key={tag}
@@ -393,64 +442,27 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                       </pre>
                     </div>
                     <div className="mt-4 rounded-xl border border-border/60 bg-background/60 p-3">
-                      {isSelected && nodeMeaning?.status === "success" ? (
-                        <>
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
-                            Plain Meaning
-                          </div>
-                          <div className="text-sm leading-relaxed text-foreground">
-                            {nodeMeaning.plain_meaning}
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
-                            Meaning
-                          </div>
-                          <MeaningSummary
-                            meaning={nodeMeaning}
-                            isSelectedNode={isSelected}
-                          />
-                        </>
-                      )}
+                      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+                        Meaning
+                      </div>
+                      <MeaningSummary
+                        meaning={nodeMeaning}
+                        isSelectedNode={isSelected}
+                      />
                     </div>
-                    {isSelected && nodeMeaning?.status === "success" && (
+                    {node.validation_errors.length > 0 && (
                       <div className="mt-4 rounded-xl border border-border/60 bg-background/60 p-3">
                         <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
-                          Structured Meaning
+                          Validation Errors
                         </div>
-                        <FieldRow
-                          label="actors"
-                          value={nodeMeaning.structured?.actors.join(", ")}
-                        />
-                        <FieldRow
-                          label="actions"
-                          value={nodeMeaning.structured?.actions.join(", ")}
-                        />
-                        <FieldRow
-                          label="object"
-                          value={nodeMeaning.structured?.object}
-                        />
-                        <FieldRow
-                          label="temporal"
-                          value={nodeMeaning.structured?.temporal}
-                        />
-                        <FieldRow
-                          label="jurisdiction"
-                          value={nodeMeaning.structured?.jurisdiction}
-                        />
-                      </div>
-                    )}
-                    {isSelected && !nodeMeaning && (
-                      <div className="mt-4 rounded-xl border border-border/60 bg-background/60 p-3">
-                        <EmptyState message="No Meaning data for this node." />
-                      </div>
-                    )}
-                    {isSelected && nodeMeaning && nodeMeaning.status !== "success" && (
-                      <div className="mt-4 rounded-xl border border-border/60 bg-background/60 p-3">
-                        <EmptyState
-                          message={nodeMeaning.reason || "Meaning unavailable for this node."}
-                        />
+                        {node.validation_errors.map((error) => (
+                          <div
+                            key={`${node.node_id}-${error}`}
+                            className="border-b border-border/50 py-2 text-sm text-destructive last:border-0"
+                          >
+                            {error}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -560,9 +572,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
 
         {activeTab === "origin" && (
           <div className="space-y-5 px-5 py-6 pb-12">
-            <div className="text-sm font-mono text-muted-foreground">
-              document
-            </div>
+            <div className="text-sm font-mono text-muted-foreground">document</div>
             <Section title="Origin Identity Signals">
               <OriginSignalList signals={data.origin.origin_identity_signals} />
             </Section>
@@ -584,6 +594,20 @@ export function Workspace({ data }: { data: PipelineResponse }) {
                 <EmptyState message="No evidence trace returned." />
               )}
             </Section>
+
+            {data.structure.validation_report.issues.length > 0 && (
+              <Section title="Validation Report">
+                {data.structure.validation_report.issues.map((issue, index) => (
+                  <div
+                    key={`${issue.section_id}-${issue.issue_type}-${index}`}
+                    className="border-b border-border/50 py-2 text-sm text-foreground last:border-0"
+                  >
+                    <div className="font-medium text-destructive">{issue.issue_type}</div>
+                    <div className="mt-1 text-muted-foreground">{issue.message}</div>
+                  </div>
+                ))}
+              </Section>
+            )}
           </div>
         )}
       </div>
