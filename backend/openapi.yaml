@@ -3,7 +3,7 @@ info:
   title: Tetherpoint
   description: >
     Source-anchored parsing stack. Locked 7-layer pipeline:
-    Input → Structure → Selection → Meaning → Origin → Verification → Output.
+    Input -> Structure -> Selection -> Meaning -> Origin -> Verification -> Output.
   version: "0.1.0"
   license:
     name: MIT
@@ -95,10 +95,6 @@ components:
 
   schemas:
 
-    # -----------------------------------------------------------------------
-    # Error response (401, 400, 413, 429)
-    # -----------------------------------------------------------------------
-
     ErrorResponse:
       type: object
       required: [detail]
@@ -106,10 +102,6 @@ components:
         detail:
           type: string
           description: Human-readable error message
-
-    # -----------------------------------------------------------------------
-    # Request
-    # -----------------------------------------------------------------------
 
     ContentType:
       type: string
@@ -142,11 +134,6 @@ components:
         options:
           $ref: "#/components/schemas/AnalyzeOptions"
 
-    # -----------------------------------------------------------------------
-    # Layer 1 — Input
-    # Purpose: intake only. No inference, no interpretation.
-    # -----------------------------------------------------------------------
-
     InputResult:
       type: object
       required: [raw_content, content_type, size, parse_status]
@@ -171,16 +158,15 @@ components:
           default: []
           description: Parse error messages if parse_status is error
 
-    # -----------------------------------------------------------------------
-    # Layer 2 — Structure
-    # Purpose: deterministic parse and normalize. No AI.
-    # Subsystems: 5W1H, SSE, CFS, LNS, AAC, TPS, SJM, MPS, RDS, ISC
-    # -----------------------------------------------------------------------
-
     StructureNode:
       type: object
       required:
         - node_id
+        - section_id
+        - role
+        - depth
+        - validation_status
+        - validation_errors
         - source_anchor
         - source_text
         - normalized_text
@@ -190,6 +176,42 @@ components:
         node_id:
           type: string
           description: Unique node identifier, path-addressable back to source
+        section_id:
+          type: string
+          description: Deterministic section identifier used for parent-child grouping
+        parent_id:
+          type: ["string", "null"]
+          description: Parent node id for children in the hierarchy
+        role:
+          type: string
+          enum:
+            - PRIMARY_RULE
+            - EVIDENCE
+            - CONDITION
+            - EXCEPTION
+            - CONSEQUENCE
+            - DEFINITION
+            - BOILERPLATE
+          description: Explicit hierarchy role assigned during deterministic section parsing
+        depth:
+          type: integer
+          description: Hierarchy depth, with PRIMARY_RULE at depth 0
+        source_span_start:
+          type: ["integer", "null"]
+          description: Best-effort start offset for the node text within the source
+        source_span_end:
+          type: ["integer", "null"]
+          description: Best-effort end offset for the node text within the source
+        validation_status:
+          type: string
+          enum: [valid, repaired, invalid]
+          description: Node validation outcome after repair/reparse attempts
+        validation_errors:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Validation errors attached to this node, if any
         source_anchor:
           type: string
           description: >
@@ -262,7 +284,7 @@ components:
 
     StructureResult:
       type: object
-      required: [nodes, node_count]
+      required: [nodes, node_count, section_count, validation_report]
       properties:
         nodes:
           type: array
@@ -271,12 +293,49 @@ components:
           description: Ordered list of structure nodes, preserving source order
         node_count:
           type: integer
+        section_count:
+          type: integer
+          description: Count of parsed sections after hierarchy enforcement and reparsing
+        validation_report:
+          $ref: "#/components/schemas/StructureValidationReport"
 
-    # -----------------------------------------------------------------------
-    # Layer 3 — Selection
-    # Purpose: deterministic node eligibility. No AI, no interpretation.
-    # Nodes pass through unchanged.
-    # -----------------------------------------------------------------------
+    StructureValidationIssue:
+      type: object
+      required: [section_id, issue_type, message]
+      properties:
+        section_id:
+          type: string
+        issue_type:
+          type: string
+          enum:
+            - missing_primary
+            - multiple_primary
+            - boilerplate_leak
+            - oversized_node
+            - unclassified_node
+            - unattached_child
+        message:
+          type: string
+        node_id:
+          type: ["string", "null"]
+
+    StructureValidationReport:
+      type: object
+      required: [status, issues, repaired_sections]
+      properties:
+        status:
+          type: string
+          enum: [clean, repaired, failed]
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/StructureValidationIssue"
+          default: []
+        repaired_sections:
+          type: array
+          items:
+            type: string
+          default: []
 
     SelectionResult:
       type: object
@@ -298,14 +357,7 @@ components:
             type: string
           description: >
             Per-node selection decision log
-            (e.g. "node-0001: SELECTED", "node-0002: EXCLUDED — no structured signal detected")
-
-    # -----------------------------------------------------------------------
-    # Layer 4 — Meaning
-    # Purpose: the ONLY AI interpretation layer.
-    # Operates only on selected nodes. Isolated behind clear interface.
-    # If no model key, returns status only — no fake output.
-    # -----------------------------------------------------------------------
+            (e.g. "node-0001: SELECTED", "node-0002: EXCLUDED - no structured signal detected")
 
     MeaningLens:
       type: object
@@ -335,6 +387,14 @@ components:
         source_text:
           type: string
           description: Original node text (not altered by Meaning)
+        status:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        message:
+          type: ["string", "null"]
+        raw_response:
+          type: ["string", "null"]
         lenses:
           type: array
           items:
@@ -359,13 +419,6 @@ components:
             $ref: "#/components/schemas/MeaningNodeResult"
           default: []
 
-    # -----------------------------------------------------------------------
-    # Layer 5 — Origin
-    # Purpose: provenance/source tracing only.
-    # No credibility judgment. No truth claims. No intent claims.
-    # Distribution metadata does not override origin identity.
-    # -----------------------------------------------------------------------
-
     OriginSignal:
       type: object
       required: [signal, value]
@@ -377,7 +430,7 @@ components:
           type: string
         category:
           type: ["string", "null"]
-          description: Signal category (e.g. opengraph, twitter_card) — distribution signals only
+          description: Signal category (e.g. opengraph, twitter_card) - distribution signals only
 
     OriginResult:
       type: object
@@ -405,19 +458,13 @@ components:
           default: []
           description: >
             Distribution metadata (OG tags, Twitter cards).
-            Explicitly separated — does NOT override origin identity.
+            Explicitly separated - does NOT override origin identity.
         evidence_trace:
           type: array
           items:
             type: string
           default: []
           description: Trace log of what was found and where
-
-    # -----------------------------------------------------------------------
-    # Layer 6 — Verification
-    # Purpose: verification-path routing only.
-    # No true/false decisions. No credibility scoring. No final judgment.
-    # -----------------------------------------------------------------------
 
     VerificationNodeResult:
       type: object
@@ -469,11 +516,6 @@ components:
             $ref: "#/components/schemas/VerificationNodeResult"
           default: []
 
-    # -----------------------------------------------------------------------
-    # Layer 7 — Output
-    # Purpose: presentation only. No transformation of upstream meaning.
-    # -----------------------------------------------------------------------
-
     OutputResult:
       type: object
       required:
@@ -502,10 +544,6 @@ components:
         verification_status:
           type: string
 
-    # -----------------------------------------------------------------------
-    # Pipeline error
-    # -----------------------------------------------------------------------
-
     PipelineError:
       type: object
       required: [layer, error, fatal]
@@ -519,10 +557,6 @@ components:
           type: boolean
           default: false
           description: If true, downstream layers may have empty results
-
-    # -----------------------------------------------------------------------
-    # Full pipeline response
-    # -----------------------------------------------------------------------
 
     PipelineResponse:
       type: object
@@ -555,10 +589,6 @@ components:
             $ref: "#/components/schemas/PipelineError"
           default: []
           description: Top-level errors surfaced from any layer
-
-    # -----------------------------------------------------------------------
-    # Validation error (422)
-    # -----------------------------------------------------------------------
 
     ValidationError:
       type: object
