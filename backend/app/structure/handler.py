@@ -23,6 +23,17 @@ def _is_fragment_node(node: StructureNode) -> bool:
     )
 
 
+def _has_primary_rule_candidate(nodes: list[StructureNode]) -> bool:
+    return any(
+        node.role == "PRIMARY_RULE" or _base._is_primary_candidate(node.normalized_text)
+        for node in nodes
+    )
+
+
+def _has_primary_rule_text(text: str) -> bool:
+    return _base._is_primary_candidate(text)
+
+
 def validateSection(
     section_nodes: list[StructureNode],
     visible_nodes: Optional[list[StructureNode]] = None,
@@ -41,6 +52,8 @@ def validateSection(
     parents = [node for node in hierarchy_nodes if node.role == "PRIMARY_RULE"]
 
     if len(parents) == 0:
+        if not _has_primary_rule_candidate(hierarchy_nodes):
+            return []
         message = f"{section_id}: missing PRIMARY_RULE"
         issues.append(_base._make_issue(section_id, "missing_primary", message))
         for node in hierarchy_nodes:
@@ -118,7 +131,8 @@ def _parse_with_validation(
 
     validation_issues = _base._validate_sections(nodes)
     fragment_only_section = _base._is_non_substantive_fragment(text)
-    if not nodes and fragment_only_section:
+    primary_rule_text = _has_primary_rule_text(text)
+    if not nodes and (fragment_only_section or not primary_rule_text):
         return nodes, next_index, [], False
     if not nodes:
         validation_issues = [
@@ -130,7 +144,7 @@ def _parse_with_validation(
         ]
     if not validation_issues:
         return nodes, next_index, [], False
-    if fragment_only_section:
+    if fragment_only_section or not primary_rule_text:
         return nodes, next_index, [], False
 
     try:
@@ -150,7 +164,7 @@ def _parse_with_validation(
         reparsed_nodes, reparsed_next_index = [], node_start_index
 
     reparse_issues = _base._validate_sections(reparsed_nodes)
-    if not reparsed_nodes and fragment_only_section:
+    if not reparsed_nodes and (fragment_only_section or not primary_rule_text):
         return reparsed_nodes, reparsed_next_index, [], False
     if not reparsed_nodes:
         reparse_issues = [
