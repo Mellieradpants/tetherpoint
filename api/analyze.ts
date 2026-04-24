@@ -244,6 +244,11 @@ export default async function handler(req: any, res: any) {
     if (!analyzeSecret) {
       sendJson(res, 500, {
         message: "ANALYZE_SECRET is not configured on the server.",
+        diagnostics: {
+          hasAnalyzeSecretEnv: Boolean(process.env.ANALYZE_SECRET),
+          vercelEnv: process.env.VERCEL_ENV ?? null,
+          configPath: "process.env.ANALYZE_SECRET -> getAnalyzeSecret() -> getBackendConfig().analyzeSecret",
+        },
       });
       return;
     }
