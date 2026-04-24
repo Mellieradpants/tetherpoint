@@ -16,7 +16,10 @@ from app.schemas.models import (
     MeaningLens,
     MeaningNodeResult,
     MeaningResult,
+    OriginResult,
     StructureNode,
+    VerificationNodeResult,
+    VerificationResult,
 )
 
 logger = logging.getLogger("tetherpoint.meaning")
@@ -32,33 +35,134 @@ LENSES = [
 VALID_LENSES = set(LENSES)
 
 
-def _build_prompt(node: StructureNode) -> str:
+def _model_dump(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
+def _verification_for_node(
+    verification_result: VerificationResult | None,
+    node_id: str,
+) -> VerificationNodeResult | None:
+    if verification_result is None:
+        return None
+    for result in verification_result.node_results:
+        if result.node_id == node_id:
+            return result
+    return None
+
+
+def _missing_information(
+    node: StructureNode,
+    origin_result: OriginResult | None,
+    verification_node: VerificationNodeResult | None,
+) -> list[str]:
+    missing: list[str] = []
+    for field in (
+        "actor",
+        "action",
+        "condition",
+        "temporal",
+        "jurisdiction",
+        "mechanism",
+        "risk",
+        "who",
+        "what",
+        "when",
+        "where",
+        "why",
+        "how",
+    ):
+        if getattr(node, field) in (None, "", []):
+            missing.append(field)
+
+    if origin_result is None:
+        missing.append("origin_context")
+    elif not any([
+        origin_result.origin_identity_signals,
+        origin_result.origin_metadata_signals,
+        origin_result.distribution_signals,
+    ]):
+        missing.append("origin_signals")
+
+    if verification_node is None:
+        missing.append("verification_result")
+    elif not verification_node.verification_path_available:
+        missing.append("verification_path")
+
+    return missing
+
+
+def _build_prompt(
+    node: StructureNode,
+    origin_result: OriginResult | None = None,
+    verification_node: VerificationNodeResult | None = None,
+) -> str:
+    context = {
+        "node": {
+            "node_id": node.node_id,
+            "section_id": node.section_id,
+            "parent_id": node.parent_id,
+            "role": node.role,
+            "depth": node.depth,
+            "source_anchor": node.source_anchor,
+            "source_text": node.source_text,
+            "normalized_text": node.normalized_text,
+            "actor": node.actor,
+            "action": node.action,
+            "condition": node.condition,
+            "temporal": node.temporal,
+            "jurisdiction": node.jurisdiction,
+            "mechanism": node.mechanism,
+            "risk": node.risk,
+            "tags": node.tags,
+            "blocked_flags": node.blocked_flags,
+            "who": node.who,
+            "what": node.what,
+            "when": node.when,
+            "where": node.where,
+            "why": node.why,
+            "how": node.how,
+        },
+        "origin": _model_dump(origin_result) if origin_result is not None else None,
+        "verification": _model_dump(verification_node) if verification_node is not None else None,
+        "missing_information": _missing_information(node, origin_result, verification_node),
+    }
+
     return (
-        "You are a precise analytical system. Given the following text extracted from a document, "
-        "evaluate it against each of the following lenses. For each lens, respond with a JSON object "
+        "You are the constrained Meaning layer for a source-anchored analysis pipeline. "
+        "Analyze exactly one selected node using only the provided deterministic context. "
+        "Do not create structure. Do not invent verification. Do not infer motive, intent, "
+        "or unsupported outcome. If the context is insufficient, say so in the lens detail.\n\n"
+        "Use the node text, parsed fields, detected scopes, origin signals, verification path, "
+        "and missing information to explain operational effect only where supported.\n\n"
+        "Context JSON:\n"
+        f"{json.dumps(context, ensure_ascii=False, sort_keys=True)}\n\n"
+        "Evaluate each of the following lenses. For each lens, respond with a JSON object "
         "containing 'lens', 'detected' (boolean), and 'detail' (string or null).\n\n"
-        f'Text: "{node.source_text}"\n\n'
         "Lenses to evaluate:\n"
         "1. modality_shift - Does the text shift obligation modality (e.g., 'shall' to 'may')?\n"
-        "2. scope_change - Does the text narrow or expand scope relative to its apparent domain?\n"
-        "3. actor_power_shift - Does the text redistribute authority or power among actors?\n"
-        "4. action_domain_shift - Does the text move an action into a different domain?\n"
-        "5. threshold_standard_shift - Does the text raise or lower a threshold or standard?\n"
-        "6. obligation_removal - Does the text remove or weaken an obligation?\n\n"
+        "2. scope_change - Does the text narrow or expand scope relative to the parsed/detected scope?\n"
+        "3. actor_power_shift - Does the text redistribute authority or power among explicit actors?\n"
+        "4. action_domain_shift - Does the text move an action into a different parsed domain?\n"
+        "5. threshold_standard_shift - Does the text raise or lower an explicit threshold or standard?\n"
+        "6. obligation_removal - Does the text remove or weaken an explicit obligation?\n\n"
         "Output requirements:\n"
         "- Return ONLY valid JSON.\n"
         "- Do not include markdown fences.\n"
-        "- Do not include explanatory text.\n"
+        "- Do not include explanatory text outside JSON.\n"
         "- Return a top-level JSON array.\n"
         "- Each array item must be an object with exactly these keys: lens, detected, detail.\n"
         "- 'lens' must be one of: modality_shift, scope_change, actor_power_shift, "
         "action_domain_shift, threshold_standard_shift, obligation_removal.\n"
         "- 'detected' must be true or false.\n"
-        "- 'detail' must be a string or null.\n\n"
+        "- 'detail' must be a string or null.\n"
+        "- If a lens cannot be evaluated from the context, use detected=false and explain the missing information in detail.\n\n"
         "Example output:\n"
         "["
         "{\"lens\":\"modality_shift\",\"detected\":false,\"detail\":null},"
-        "{\"lens\":\"scope_change\",\"detected\":true,\"detail\":\"Scope is narrowed to interstate operators only\"}"
+        "{\"lens\":\"scope_change\",\"detected\":true,\"detail\":\"The node narrows operation to the selected text's explicit jurisdiction.\"}"
         "]"
     )
 
@@ -202,6 +306,8 @@ def _call_openai(prompt: str) -> list[dict[str, Any]] | dict[str, str]:
 def process_meaning(
     selected_nodes: list[StructureNode],
     run: bool = True,
+    origin_result: OriginResult | None = None,
+    verification_result: VerificationResult | None = None,
 ) -> MeaningResult:
     """Process meaning for selected nodes. AI layer."""
     if not run:
@@ -213,7 +319,12 @@ def process_meaning(
     node_results: list[MeaningNodeResult] = []
 
     for node in selected_nodes:
-        prompt = _build_prompt(node)
+        verification_node = _verification_for_node(verification_result, node.node_id)
+        prompt = _build_prompt(
+            node,
+            origin_result=origin_result,
+            verification_node=verification_node,
+        )
         raw = _call_openai(prompt)
 
         if isinstance(raw, dict) and "error" in raw:
