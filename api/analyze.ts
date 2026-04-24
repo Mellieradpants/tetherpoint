@@ -28,6 +28,12 @@ const WINDOW_SECONDS = 60_000;
 const generalBuckets = new Map<string, number[]>();
 const meaningBuckets = new Map<string, number[]>();
 
+function getVisibleEnvNames(): string[] {
+  return Object.keys(process.env)
+    .filter((name) => /ANALYZE|SECRET|API|VERCEL/i.test(name))
+    .sort();
+}
+
 function getBackendConfig() {
   const apiBaseUrl =
     process.env.ANALYZE_API_BASE_URL ?? "https://anchored-flow-stack.onrender.com";
@@ -247,6 +253,7 @@ export default async function handler(req: any, res: any) {
           vercelEnv: process.env.VERCEL_ENV ?? null,
           configPath: "process.env.ANALYZE_SECRET -> getBackendConfig().analyzeSecret",
           apiBaseUrlSource: process.env.ANALYZE_API_BASE_URL ? "env" : "default",
+          visibleEnvNames: getVisibleEnvNames(),
         },
       });
       return;
