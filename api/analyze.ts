@@ -1,6 +1,4 @@
-export const config = {
-  runtime: "nodejs",
-};
+export const runtime = "nodejs";
 
 type AnalyzeOptions = {
   run_meaning: boolean;
