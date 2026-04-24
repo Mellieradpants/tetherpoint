@@ -13,7 +13,7 @@ from app.schemas.models import (
     MeaningNodeResult,
     MeaningNodeResult,
     MeaningResult,
-    MeaningSuccessNodeResult,
+    MeaningNodeResult,
     StructureNode,
 )
 
@@ -121,7 +121,7 @@ def _validate_success_payload(node_id: str, payload: dict[str, Any]):
             reason="structured.jurisdiction must be a string or null",
         )
 
-    return MeaningSuccessNodeResult(
+    return MeaningNodeResult(
         node_id=node_id,
         status="success",
         plain_meaning=plain_meaning.strip(),
