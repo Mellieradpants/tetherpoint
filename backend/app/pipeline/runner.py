@@ -13,8 +13,10 @@ from app.verification.handler import process_verification
 
 
 def run_pipeline(request: AnalyzeRequest) -> PipelineResponse:
-    """Execute the locked 7-layer pipeline:
-    Input -> Structure -> Selection -> Meaning -> Origin -> Verification -> Output
+    """Execute the locked pipeline:
+    Input -> Origin Intake -> Structure -> Selection -> Parsing -> Verification -> Meaning -> Output
+
+    Parsing fields are currently produced inside Structure; no separate Parsing layer is created here.
     """
     errors: list[PipelineError] = []
 
@@ -27,7 +29,13 @@ def run_pipeline(request: AnalyzeRequest) -> PipelineResponse:
             fatal=True,
         ))
 
-    # 2. Structure
+    # 2. Origin Intake
+    origin_result = process_origin(
+        input_result,
+        run=request.options.run_origin,
+    )
+
+    # 3. Structure
     structure_result = process_structure(input_result)
     if structure_result.node_count == 0 and input_result.parse_status == "ok":
         errors.append(PipelineError(
@@ -47,13 +55,24 @@ def run_pipeline(request: AnalyzeRequest) -> PipelineResponse:
             fatal=False,
         ))
 
-    # 3. Selection
+    # 4. Selection
     selection_result = process_selection(structure_result)
 
-    # 4. Meaning
+    # 5. Parsing
+    # Parsed node fields are produced by the deterministic Structure layer in this pass.
+
+    # 6. Verification
+    verification_result = process_verification(
+        selection_result.selected_nodes,
+        run=request.options.run_verification,
+    )
+
+    # 7. Meaning
     meaning_result = process_meaning(
         selection_result.selected_nodes,
         run=request.options.run_meaning,
+        origin_result=origin_result,
+        verification_result=verification_result,
     )
     if meaning_result.status == "skipped" and request.options.run_meaning:
         errors.append(PipelineError(
@@ -62,19 +81,7 @@ def run_pipeline(request: AnalyzeRequest) -> PipelineResponse:
             fatal=False,
         ))
 
-    # 5. Origin
-    origin_result = process_origin(
-        input_result,
-        run=request.options.run_origin,
-    )
-
-    # 6. Verification
-    verification_result = process_verification(
-        selection_result.selected_nodes,
-        run=request.options.run_verification,
-    )
-
-    # 7. Output
+    # 8. Output
     output_result = assemble_output(
         input_result,
         structure_result,
