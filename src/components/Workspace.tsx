@@ -43,6 +43,12 @@ interface MeaningLens {
   detail?: string | null;
 }
 
+interface MeaningScopeDetail {
+  scope: string;
+  detail?: string | null;
+  evidence?: string | null;
+}
+
 interface MeaningNodeResult {
   node_id: string;
   source_text: string;
@@ -51,6 +57,10 @@ interface MeaningNodeResult {
   message?: string | null;
   raw_response?: string | null;
   lenses: MeaningLens[];
+  detected_scopes?: string[];
+  plain_meaning?: string | null;
+  scope_details?: MeaningScopeDetail[];
+  missing_information?: string[];
 }
 
 interface MeaningData {
@@ -204,30 +214,100 @@ function MeaningSummary({
   }
 
   if (meaning.status === "executed") {
-    if (meaning.lenses.length === 0) {
-      return <EmptyState message="No meaning lenses were returned for this node." />;
-    }
+    const detectedScopes =
+      meaning.detected_scopes && meaning.detected_scopes.length > 0
+        ? meaning.detected_scopes
+        : meaning.lenses.filter((lens) => lens.detected).map((lens) => lens.lens);
+    const scopeDetails =
+      meaning.scope_details && meaning.scope_details.length > 0
+        ? meaning.scope_details
+        : meaning.lenses
+            .filter((lens) => lens.detected && lens.detail)
+            .map((lens) => ({ scope: lens.lens, detail: lens.detail }));
+    const missingInformation = meaning.missing_information || [];
 
     return (
-      <div className="space-y-2">
-        {meaning.lenses.map((lens) => (
-          <div
-            key={`${meaning.node_id}-${lens.lens}`}
-            className="rounded border border-border/50 bg-background/40 p-2"
-          >
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-muted">
-              {lens.lens}
-            </div>
-            <div className="mt-1 text-sm text-foreground">
-              {lens.detected ? "Detected" : "Not detected"}
-            </div>
-            {lens.detail && (
-              <div className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                {lens.detail}
-              </div>
-            )}
+      <div className="space-y-3">
+        <div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+            Detected Scopes
           </div>
-        ))}
+          {detectedScopes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {detectedScopes.map((scope) => (
+                <span
+                  key={`${meaning.node_id}-${scope}`}
+                  className="rounded bg-secondary px-2.5 py-1 text-[11px] text-foreground"
+                >
+                  {scope}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No Meaning scopes detected for this node." />
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+            Plain Meaning
+          </div>
+          {meaning.plain_meaning ? (
+            <div className="text-sm leading-relaxed text-foreground">
+              {meaning.plain_meaning}
+            </div>
+          ) : (
+            <EmptyState message="Plain-language Meaning was not returned for this node." />
+          )}
+        </div>
+
+        {scopeDetails.length > 0 && (
+          <div>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+              Scope Details
+            </div>
+            <div className="space-y-2">
+              {scopeDetails.map((detail) => (
+                <div
+                  key={`${meaning.node_id}-${detail.scope}`}
+                  className="rounded border border-border/50 bg-background/40 p-2"
+                >
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-muted">
+                    {detail.scope}
+                  </div>
+                  {detail.detail && (
+                    <div className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {detail.detail}
+                    </div>
+                  )}
+                  {detail.evidence && (
+                    <div className="mt-1 text-sm leading-relaxed text-foreground">
+                      {detail.evidence}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {missingInformation.length > 0 && (
+          <div>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold-muted">
+              Missing Information
+            </div>
+            <div className="space-y-1">
+              {missingInformation.map((item) => (
+                <div
+                  key={`${meaning.node_id}-${item}`}
+                  className="text-sm leading-relaxed text-muted-foreground"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
