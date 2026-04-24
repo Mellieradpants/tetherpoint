@@ -327,6 +327,17 @@ export function Workspace({ data }: { data: PipelineResponse }) {
     () => new Set(data.selection.selected_nodes.map((node) => node.node_id)),
     [data.selection.selected_nodes]
   );
+  const displayNodes = useMemo(
+    () =>
+      data.selection.selected_nodes.length > 0
+        ? data.selection.selected_nodes
+        : data.structure.nodes,
+    [data.selection.selected_nodes, data.structure.nodes]
+  );
+  const displayNodeIds = useMemo(
+    () => new Set(displayNodes.map((node) => node.node_id)),
+    [displayNodes]
+  );
   const meaningMap = useMemo(
     () => new Map(data.meaning.node_results.map((node) => [node.node_id, node])),
     [data.meaning.node_results]
@@ -337,24 +348,19 @@ export function Workspace({ data }: { data: PipelineResponse }) {
   );
 
   useEffect(() => {
-    const preferredNodeId =
-      data.selection.selected_nodes[0]?.node_id ??
-      data.structure.nodes[0]?.node_id ??
-      null;
+    const preferredNodeId = displayNodes[0]?.node_id ?? null;
 
     if (!preferredNodeId) {
       setSelectedNodeId(null);
       return;
     }
 
-    const stillExists = data.structure.nodes.some(
-      (node) => node.node_id === selectedNodeId
-    );
+    const stillVisible = displayNodeIds.has(selectedNodeId || "");
 
-    if (!selectedNodeId || !stillExists) {
+    if (!selectedNodeId || !stillVisible) {
       setSelectedNodeId(preferredNodeId);
     }
-  }, [data.structure.nodes, data.selection.selected_nodes, selectedNodeId]);
+  }, [displayNodes, displayNodeIds, selectedNodeId]);
 
   const currentNode =
     data.structure.nodes.find((node) => node.node_id === selectedNodeId) ?? null;
@@ -445,7 +451,7 @@ export function Workspace({ data }: { data: PipelineResponse }) {
       <div className="flex-1 overflow-y-auto">
         {activeTab === "meaning" && (
           <div className="space-y-1 p-4">
-            {data.structure.nodes.map((node, index) => {
+            {displayNodes.map((node, index) => {
               const isActive = node.node_id === selectedNodeId;
               const isSelected = selectedIds.has(node.node_id);
               const nodeMeaning = meaningMap.get(node.node_id);
