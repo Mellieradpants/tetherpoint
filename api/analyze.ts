@@ -24,24 +24,18 @@ const WINDOW_SECONDS = 60_000;
 const generalBuckets = new Map<string, number[]>();
 const meaningBuckets = new Map<string, number[]>();
 
-function getAnalyzeSecret(): string | undefined {
-  const analyzeSecret = process.env.ANALYZE_SECRET;
-
-  if (typeof analyzeSecret !== "string") {
-    return undefined;
-  }
-
-  const trimmedSecret = analyzeSecret.trim();
-  return trimmedSecret.length > 0 ? trimmedSecret : undefined;
-}
-
 function getBackendConfig() {
   const apiBaseUrl =
     process.env.ANALYZE_API_BASE_URL ?? "https://anchored-flow-stack.onrender.com";
+  const analyzeSecretRaw = process.env.ANALYZE_SECRET;
+  const analyzeSecret =
+    typeof analyzeSecretRaw === "string" && analyzeSecretRaw.trim().length > 0
+      ? analyzeSecretRaw.trim()
+      : undefined;
 
   return {
     apiUrl: `${apiBaseUrl.replace(/\/+$/, "")}/analyze`,
-    analyzeSecret: getAnalyzeSecret(),
+    analyzeSecret,
   };
 }
 
@@ -124,7 +118,7 @@ function enforceAnalyzeSecurity(input: {
 
   let meaningAllowed = false;
   if (input.options.run_meaning) {
-    if (getAnalyzeSecret()) {
+    if (getBackendConfig().analyzeSecret) {
       meaningAllowed = true;
     }
 
@@ -243,11 +237,12 @@ export default async function handler(req: any, res: any) {
 
     if (!analyzeSecret) {
       sendJson(res, 500, {
-        message: "ANALYZE_SECRET missing from TOP-LEVEL api/analyze.ts",
+        message: "TOP_LEVEL_ANALYZE_SECRET_MISSING_V2",
         diagnostics: {
           hasAnalyzeSecretEnv: Boolean(process.env.ANALYZE_SECRET),
           vercelEnv: process.env.VERCEL_ENV ?? null,
-          configPath: "process.env.ANALYZE_SECRET -> getAnalyzeSecret() -> getBackendConfig().analyzeSecret",
+          configPath: "process.env.ANALYZE_SECRET -> getBackendConfig().analyzeSecret",
+          apiBaseUrlSource: process.env.ANALYZE_API_BASE_URL ? "env" : "default",
         },
       });
       return;
