@@ -154,6 +154,12 @@ class MeaningLens(BaseModel):
     detail: Optional[str] = None
 
 
+class MeaningScopeDetail(BaseModel):
+    scope: MeaningLensName
+    detail: Optional[str] = None
+    evidence: Optional[str] = None
+
+
 class MeaningNodeResult(BaseModel):
     node_id: str
     source_text: str
@@ -162,6 +168,10 @@ class MeaningNodeResult(BaseModel):
     message: Optional[str] = None
     raw_response: Optional[str] = None
     lenses: list[MeaningLens]
+    detected_scopes: list[str] = Field(default_factory=list)
+    plain_meaning: Optional[str] = None
+    scope_details: list[MeaningScopeDetail] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
 
 
 class MeaningResult(BaseModel):
