@@ -18,9 +18,13 @@ from app.schemas.models import StructureNode, VerificationNodeResult, Verificati
 
 _ASSERTION_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("legal_legislative", re.compile(
-        r"\b(statute|legislation|law|enacted|codified|U\.?S\.?C\.?|act of|public law|bill)\b", re.I)),
+        r"\b(statute|legislation|law|enacted|codified|U\.?S\.?C\.?|United States Code|act of|public law|bill|section\s+\d+|is amended|federal office)\b",
+        re.I,
+    )),
     ("court_case_law", re.compile(
-        r"\b(court|ruling|decision|opinion|case|plaintiff|defendant|judge|verdict|appeal)\b", re.I)),
+        r"\b(court|courtlistener|ruling|judicial decision|court opinion|case law|plaintiff|defendant|judge|verdict|appeal)\b",
+        re.I,
+    )),
     ("government_publication", re.compile(
         r"\b(federal register|executive order|proclamation|regulation|agency|department|bureau)\b", re.I)),
     ("scientific_biomedical", re.compile(
