@@ -99,6 +99,13 @@ interface StructureValidationIssue {
   node_id?: string | null;
 }
 
+interface VerificationRouteSummary {
+  system: string;
+  assertionTypes: string[];
+  nodeIds: string[];
+  evidence: string[];
+}
+
 export interface PipelineResponse {
   input: {
     raw_content: string;
@@ -342,10 +349,59 @@ export function Workspace({ data }: { data: PipelineResponse }) {
     () => new Map(data.meaning.node_results.map((node) => [node.node_id, node])),
     [data.meaning.node_results]
   );
-  const verificationMap = useMemo(
-    () => new Map(data.verification.node_results.map((node) => [node.node_id, node])),
-    [data.verification.node_results]
-  );
+  const verificationSummary = useMemo(() => {
+    const nodeById = new Map(data.structure.nodes.map((node) => [node.node_id, node]));
+    const routes = new Map<string, { assertionTypes: Set<string>; nodeIds: Set<string>; evidence: string[] }>();
+    const assertionTypes = new Set<string>();
+    let detectedCount = 0;
+    let routedCount = 0;
+
+    for (const result of data.verification.node_results) {
+      if (result.assertion_detected) {
+        detectedCount += 1;
+      }
+      if (result.assertion_type) {
+        assertionTypes.add(result.assertion_type);
+      }
+      if (result.expected_record_systems.length > 0) {
+        routedCount += 1;
+      }
+
+      for (const system of result.expected_record_systems) {
+        if (!routes.has(system)) {
+          routes.set(system, {
+            assertionTypes: new Set<string>(),
+            nodeIds: new Set<string>(),
+            evidence: [],
+          });
+        }
+
+        const route = routes.get(system)!;
+        route.nodeIds.add(result.node_id);
+        if (result.assertion_type) {
+          route.assertionTypes.add(result.assertion_type);
+        }
+
+        const nodeText = nodeById.get(result.node_id)?.source_text?.trim();
+        if (nodeText && route.evidence.length < 3 && !route.evidence.includes(nodeText)) {
+          route.evidence.push(nodeText);
+        }
+      }
+    }
+
+    return {
+      detectedCount,
+      routedCount,
+      total: data.verification.node_results.length,
+      assertionTypes: Array.from(assertionTypes),
+      routes: Array.from(routes.entries()).map(([system, route]): VerificationRouteSummary => ({
+        system,
+        assertionTypes: Array.from(route.assertionTypes),
+        nodeIds: Array.from(route.nodeIds),
+        evidence: route.evidence,
+      })),
+    };
+  }, [data.structure.nodes, data.verification.node_results]);
 
   useEffect(() => {
     const preferredNodeId = displayNodes[0]?.node_id ?? null;
@@ -361,14 +417,6 @@ export function Workspace({ data }: { data: PipelineResponse }) {
       setSelectedNodeId(preferredNodeId);
     }
   }, [displayNodes, displayNodeIds, selectedNodeId]);
-
-  const currentNode =
-    data.structure.nodes.find((node) => node.node_id === selectedNodeId) ?? null;
-  const isSelectedNode = currentNode ? selectedIds.has(currentNode.node_id) : false;
-  const currentMeaning = currentNode ? meaningMap.get(currentNode.node_id) : undefined;
-  const currentVerification = currentNode
-    ? verificationMap.get(currentNode.node_id)
-    : undefined;
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -560,99 +608,80 @@ export function Workspace({ data }: { data: PipelineResponse }) {
 
         {activeTab === "verification" && (
           <div className="space-y-5 px-5 py-6 pb-12">
-            <div className="text-sm font-mono text-muted-foreground">
-              {currentNode?.node_id || "No node selected"}
-            </div>
+            <div className="text-sm font-mono text-muted-foreground">document</div>
 
-            {!currentNode ? (
-              <EmptyState message="No data for this node." />
-            ) : (
-              <>
-                <Section title="Selection">
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`rounded px-3 py-2 text-sm font-medium ${
-                        isSelectedNode
-                          ? "bg-gold/15 text-gold"
-                          : "bg-secondary text-muted-foreground"
-                      }`}
+            <Section title="Document Verification Summary">
+              <FieldRow
+                label="status"
+                value={data.verification.status}
+              />
+              <FieldRow
+                label="checked"
+                value={`${verificationSummary.total} selected node(s)`}
+              />
+              <FieldRow
+                label="detected"
+                value={`${verificationSummary.detectedCount} node(s) with verification signals`}
+              />
+              <FieldRow
+                label="routed"
+                value={`${verificationSummary.routedCount} node(s) routed to record systems`}
+              />
+            </Section>
+
+            <Section title="Expected Record Systems">
+              {verificationSummary.routes.length > 0 ? (
+                <div className="space-y-3">
+                  {verificationSummary.routes.map((route) => (
+                    <div
+                      key={route.system}
+                      className="rounded-xl border border-border/50 bg-background/40 p-3"
                     >
-                      {isSelectedNode ? "SELECTED" : "EXCLUDED"}
-                    </span>
-                  </div>
-                </Section>
-
-                {!isSelectedNode ? (
-                  <Section title="Verification">
-                    <EmptyState message="This node is excluded. No Verification data for this node." />
-                  </Section>
-                ) : !currentVerification ? (
-                  <Section title="Verification">
-                    <EmptyState message="No Verification data for this node." />
-                  </Section>
-                ) : (
-                  <>
-                    <Section title="Verification">
-                      <FieldRow
-                        label="assertion"
-                        value={
-                          currentVerification.assertion_detected
-                            ? "Detected"
-                            : "Not detected"
-                        }
-                      />
-                      <FieldRow label="type" value={currentVerification.assertion_type} />
-                      <FieldRow
-                        label="path"
-                        value={
-                          currentVerification.verification_path_available
-                            ? "Available"
-                            : "Unavailable"
-                        }
-                      />
-                      <FieldRow
-                        label="notes"
-                        value={currentVerification.verification_notes}
-                      />
-                    </Section>
-
-                    <Section title="Expected Record Systems">
-                      {currentVerification.expected_record_systems.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {currentVerification.expected_record_systems.map((system) => (
-                            <span
-                              key={system}
-                              className="rounded bg-secondary px-3 py-2 text-sm font-medium text-foreground"
+                      <div className="text-sm font-semibold text-foreground">
+                        {route.system}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Triggered by {route.nodeIds.length} selected node(s)
+                        {route.assertionTypes.length > 0
+                          ? ` · ${route.assertionTypes.join(", ")}`
+                          : ""}
+                      </div>
+                      {route.evidence.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {route.evidence.map((snippet) => (
+                            <div
+                              key={`${route.system}-${snippet}`}
+                              className="rounded border border-border/40 bg-surface p-2 text-sm leading-relaxed text-muted-foreground"
                             >
-                              {system}
-                            </span>
+                              {snippet}
+                            </div>
                           ))}
                         </div>
-                      ) : (
-                        <EmptyState message="No record systems for this node." />
                       )}
-                    </Section>
-                  </>
-                )}
-
-                <Section title="Tags">
-                  {currentNode.tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {currentNode.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded bg-gold/15 px-3 py-2 text-sm font-medium text-gold"
-                        >
-                          {tag}
-                        </span>
-                      ))}
                     </div>
-                  ) : (
-                    <EmptyState message="No tags for this node." />
-                  )}
-                </Section>
-              </>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <EmptyState message="No document-level record systems were detected for this input." />
+              )}
+            </Section>
+
+            <Section title="Assertion Types">
+              {verificationSummary.assertionTypes.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {verificationSummary.assertionTypes.map((type) => (
+                    <span
+                      key={type}
+                      className="rounded bg-secondary px-3 py-2 text-sm font-medium text-foreground"
+                    >
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState message="No assertion types detected." />
+              )}
+            </Section>
           </div>
         )}
 
