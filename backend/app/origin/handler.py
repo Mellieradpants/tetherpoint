@@ -1,4 +1,4 @@
-"""Origin layer: provenance / source tracing only.
+"""Origin layer: provenance / source tracing and document anchoring only.
 
 No credibility judgment. No truth claims. No intent claims.
 """
@@ -8,10 +8,30 @@ from __future__ import annotations
 import json
 import re
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 from bs4 import BeautifulSoup
 
-from app.schemas.models import ContentType, InputResult, OriginResult, OriginSignal
+from app.schemas.models import (
+    ContentType,
+    InputResult,
+    OriginResult,
+    OriginSignal,
+    StructureResult,
+)
+
+_BILL_MARKER_RE = re.compile(
+    r"^(?:h\.?\s*r\.?\s*\d+\.?|s\.?\s*\d+\.?|h\.?\s*res\.?\s*\d+\.?|s\.?\s*res\.?\s*\d+\.?)$",
+    re.I,
+)
+_HEADER_LABEL_RE = re.compile(
+    r"^(?:h\.?|r\.?|\d+\.?|an act\.?|a bill\.?|be it enacted\.?|and\.?|or\.?)$",
+    re.I,
+)
+_CITATION_TITLE_RE = re.compile(
+    r"\b(?:may be cited as|short title|table of contents|this act)\b",
+    re.I,
+)
 
 
 def _extract_html_origin(content: str) -> dict:
@@ -134,8 +154,54 @@ def _extract_text_origin(content: str) -> dict:
     return {"identity": identity, "metadata": [], "distribution": [], "trace": trace}
 
 
-def process_origin(input_result: InputResult, run: bool = True) -> OriginResult:
-    """Extract provenance signals from source content."""
+def _tag(node, tag: str) -> None:
+    if tag not in node.tags:
+        node.tags.append(tag)
+
+
+def _node_text(node) -> str:
+    return " ".join((node.source_text or node.normalized_text or "").split())
+
+
+def _apply_document_anchor_tags(structure_result: Optional[StructureResult]) -> list[str]:
+    if structure_result is None:
+        return []
+
+    trace: list[str] = []
+    anchored_count = 0
+    origin_count = 0
+
+    for node in structure_result.nodes:
+        _tag(node, "anchor:node")
+        anchored_count += 1
+
+        text = _node_text(node).strip()
+        stripped = text.strip(" .;:")
+        if not stripped:
+            continue
+
+        is_document_identity = bool(
+            _BILL_MARKER_RE.match(stripped)
+            or _HEADER_LABEL_RE.match(stripped)
+            or _CITATION_TITLE_RE.search(text)
+        )
+
+        if is_document_identity:
+            _tag(node, "origin:document_identity")
+            origin_count += 1
+
+    trace.append(f"Applied node anchors to {anchored_count} structure nodes")
+    if origin_count:
+        trace.append(f"Tagged {origin_count} document identity/header nodes")
+    return trace
+
+
+def process_origin(
+    input_result: InputResult,
+    structure_result: Optional[StructureResult] = None,
+    run: bool = True,
+) -> OriginResult:
+    """Extract provenance signals and document-anchor tags."""
     if not run:
         return OriginResult(status="skipped")
 
@@ -148,6 +214,7 @@ def process_origin(input_result: InputResult, run: bool = True) -> OriginResult:
     }
 
     result = extractors[ct](input_result.raw_content)
+    result["trace"].extend(_apply_document_anchor_tags(structure_result))
 
     return OriginResult(
         status="executed",
