@@ -98,6 +98,9 @@ def _selection_reasons(node: StructureNode) -> list[str]:
     if not text:
         return ["empty source_text"]
 
+    if "origin:document_identity" in node.tags:
+        reasons.append("document identity/header node routed to Origin")
+
     if node.validation_status == "invalid":
         reasons.append("hierarchy validation failed")
 
